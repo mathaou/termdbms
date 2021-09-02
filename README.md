@@ -14,6 +14,9 @@
 xterm-256 color mode must be enabled in the settings in order for color highlighting to function in these environments as well.
 MobaXterm, GitBash, and the most recent Windows terminal should all support these on Windows. Linux supports out of the box.
 
+#### Known issues:
+Large databases (thousands of rows) make it slow sometimes. PRs open for optimization/ batching etc...
+
 ##### Help:
 	-p	database path (absolute)
 	-h	prints this message
