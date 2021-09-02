@@ -20,7 +20,7 @@ var (
 
 const (
 	getTableNamesQuery = "SELECT name FROM sqlite_master WHERE type='table'"
-	debugPath          = "" // set to whatever hardcoded path for testing
+	debugPath          = "/home/mfarstad/Desktop/chinook.db" // set to whatever hardcoded path for testing
 )
 
 func init() {
@@ -35,7 +35,7 @@ func main() {
 	var path string
 	var help bool
 
-	debug := false
+	debug := true
 	// if not debug, then this section parses and validates cmd line arguments
 	if !debug {
 		flag.Usage = func() {

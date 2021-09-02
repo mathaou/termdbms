@@ -89,6 +89,7 @@ func scrollDown(m *TuiModel) {
 	}
 	if m.viewport.YOffset < max-1 {
 		m.viewport.YOffset++
+		m.mouseEvent.Y++
 	}
 }
 
@@ -96,6 +97,9 @@ func scrollDown(m *TuiModel) {
 func scrollUp(m *TuiModel) {
 	if m.viewport.YOffset > 0 {
 		m.viewport.YOffset--
+		m.mouseEvent.Y--
+	} else {
+		m.mouseEvent.Y = headerHeight
 	}
 }
 

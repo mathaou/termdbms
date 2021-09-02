@@ -73,7 +73,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 
 		break
 	case "w": // manual keyboard control for row --
-		if m.mouseEvent.Y > headerHeight && m.viewport.YOffset < m.mouseEvent.Y {
+		if m.mouseEvent.Y > headerHeight {
 			m.mouseEvent.Y--
 		}
 		break
