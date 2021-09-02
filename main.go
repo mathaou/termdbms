@@ -56,6 +56,7 @@ func main() {
 			fmt.Println("\t[UP/K and DOWN/J] to navigate schemas")
 			fmt.Println("\t[M(scroll up) and N(scroll down)] to scroll manually")
 			fmt.Println("\t[Q or CTRL+C] to quit program")
+			fmt.Println("\t[B] to toggle borders!")
 			fmt.Println("\t[ESC] to exit full screen view")
 		}
 

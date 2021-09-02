@@ -32,6 +32,7 @@ type TuiModel struct {
 	TableSelection  int
 	ready           bool
 	renderSelection bool
+	borderToggle    bool
 	viewport        viewport.Model
 	tableStyle      lipgloss.Style
 	mouseEvent      tea.MouseEvent

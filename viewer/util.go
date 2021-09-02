@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/charmbracelet/lipgloss"
 	"math"
 	"os"
 	"strconv"
 	"time"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // GetNewModel returns a TuiModel struct with some fields set
@@ -35,15 +35,20 @@ func (m *TuiModel) CellWidth() int {
 
 // GetBaseStyle returns a new style that is used everywhere
 func (m *TuiModel) GetBaseStyle() lipgloss.Style {
-	return lipgloss.NewStyle().
+	s := lipgloss.NewStyle().
 		Width(m.CellWidth()).
 		MaxWidth(m.CellWidth()).
 		Align(lipgloss.Left).
 		Padding(0).
 		Margin(0)
-		//BorderRight(true).
-		//BorderLeft(true).
-		//BorderStyle(lipgloss.NormalBorder())
+
+	if m.borderToggle {
+		s = s.BorderRight(true).
+			BorderLeft(true).
+			BorderStyle(lipgloss.RoundedBorder())
+	}
+
+	return s
 }
 
 // GetColumn gets the column the mouse cursor is in
@@ -146,13 +151,13 @@ func displayTable(m *TuiModel) string {
 			} else if i, ok := val.(int64); ok {
 				rowBuilder = append(rowBuilder, base.Render(fmt.Sprintf("%d", i)))
 			} else if i, ok := val.(float64); ok {
-				rowBuilder = append(rowBuilder, base.Render(fmt.Sprintf("%.2f%%", i)))
+				rowBuilder = append(rowBuilder, base.Render(fmt.Sprintf("%.2f", i)))
 			} else if t, ok := val.(time.Time); ok {
 				cw := m.CellWidth()
 				str := t.String()
 				s := str[:cw]
 				if len(s) == cw {
-					s = s[:len(s) - 3] + "..."
+					s = s[:len(s)-3] + "..."
 				}
 				rowBuilder = append(rowBuilder, base.Render(s))
 			} else if val == nil {
@@ -193,7 +198,7 @@ func displaySelection(m *TuiModel) string {
 		str := t.String()
 		s := str[:cw]
 		if len(s) == cw {
-			s = s[:len(s) - 3] + "..."
+			s = s[:len(s)-3] + "..."
 		}
 		prettyPrint = base.Render(s)
 	} else if raw == nil {

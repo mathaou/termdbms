@@ -47,6 +47,9 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) {
 // handleKeyboardEvents does that
 func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	switch msg.String() {
+	case "b":
+		m.borderToggle = !m.borderToggle
+		break
 	case "up", "k": // toggle next schema + 1
 		if m.TableSelection == len(m.TableIndexMap) {
 			m.TableSelection = 1

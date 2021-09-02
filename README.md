@@ -27,4 +27,5 @@ MobaXterm, GitBash, and the most recent Windows terminal should all support thes
 	[UP/K and DOWN/J] to navigate schemas
 	[M(scroll up) and N(scroll down)] to scroll manually
 	[Q or CTRL+C] to quit program
+    [B] to toggle borders!
 	[ESC] to exit full screen view
