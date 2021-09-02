@@ -6,7 +6,6 @@ import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
 	_ "github.com/mattn/go-sqlite3"
-	"io/ioutil"
 	"os"
 	. "sqlite3-viewer/viewer"
 	"strings"
@@ -21,7 +20,7 @@ var (
 
 const (
 	getTableNamesQuery = "SELECT name FROM sqlite_master WHERE type='table'"
-	debugPath = ""
+	debugPath          = "" // set to whatever hardcoded path for testing
 )
 
 func init() {
@@ -32,29 +31,14 @@ func init() {
 	dbs = make(map[string]*sql.DB)
 }
 
-func IsUrl(fp string) bool {
-	// Check if file already exists
-	if _, err := os.Stat(fp); err == nil {
-		return true
-	}
-
-	// Attempt to create it
-	var d []byte
-	if err := ioutil.WriteFile(fp, d, 0644); err == nil {
-		os.Remove(fp) // And delete it
-		return true
-	}
-
-	return false
-}
-
 func main() {
 	var path string
 	var help bool
 
 	debug := false
+	// if not debug, then this section parses and validates cmd line arguments
 	if !debug {
-		flag.Usage = func(){
+		flag.Usage = func() {
 			fmt.Println("NOTE: Mouse controls don't work for remote sessions like serial or SSH. " +
 				"\nxterm-256 color mode must be enabled in the settings in order for color highlighting to function in " +
 				"these environments as well.\n" +
@@ -111,11 +95,14 @@ func main() {
 		path = debugPath
 	}
 
+	// gets a sqlite instance for the database file
 	db := getDatabaseForFile(path)
 	defer db.Close()
 
+	// initializes the model used by bubbletea
 	setModel(c, db)
 
+	// creates the program
 	p := tea.NewProgram(initialModel,
 		tea.WithAltScreen(),
 		tea.WithMouseAllMotion())
@@ -126,10 +113,12 @@ func main() {
 	}
 }
 
+// setModel creates a model to be used by bubbletea using some golang wizardry
 func setModel(c *sql.Rows, db *sql.DB) {
 	var err error
 	indexMap := 0
 
+	// gets all the schema names of the database
 	rows, err := db.Query(getTableNamesQuery)
 	if err != nil {
 		fmt.Printf("%v", err)
@@ -137,13 +126,15 @@ func setModel(c *sql.Rows, db *sql.DB) {
 	}
 	defer rows.Close()
 
+	// for each schema
 	for rows.Next() {
-		var tableName string
-		rows.Scan(&tableName)
+		var schemaName string
+		rows.Scan(&schemaName)
 
+		// couldn't get prepared statements working and gave up because it was very simple
 		var statement strings.Builder
 		statement.WriteString("select * from ")
-		statement.WriteString(tableName)
+		statement.WriteString(schemaName)
 
 		if c != nil {
 			c.Close()
@@ -154,12 +145,13 @@ func setModel(c *sql.Rows, db *sql.DB) {
 			panic(err)
 		}
 
-		names, _ := c.Columns()
-		m := make(map[string][]interface{})
+		columnNames, _ := c.Columns()
+		columnValues := make(map[string][]interface{})
 
 		for c.Next() { // each row of the table
-			columns := make([]interface{}, len(names))
-			columnPointers := make([]interface{}, len(names))
+			// golang wizardry
+			columns := make([]interface{}, len(columnNames))
+			columnPointers := make([]interface{}, len(columnNames))
 			// init interface array
 			for i, _ := range columns {
 				columnPointers[i] = &columns[i]
@@ -167,21 +159,25 @@ func setModel(c *sql.Rows, db *sql.DB) {
 
 			c.Scan(columnPointers...)
 
-			for i, colName := range names {
+			for i, colName := range columnNames {
 				val := columnPointers[i].(*interface{})
-				m[colName] = append(m[colName], *val)
+				columnValues[colName] = append(columnValues[colName], *val)
 			}
 		}
 
+		// onto the next schema
 		indexMap++
-		initialModel.Table[tableName] = m
-		initialModel.TableHeaders[tableName] = names
-		initialModel.TableIndexMap[indexMap] = tableName
+		initialModel.Table[schemaName] = columnValues       // data for schema, organized by column
+		initialModel.TableHeaders[schemaName] = columnNames // headers for the schema, for later reference
+		// mapping between schema and an int ( since maps aren't deterministic), for later reference
+		initialModel.TableIndexMap[indexMap] = schemaName
 	}
 
+	// set the first table to be initial view
 	initialModel.TableSelection = 1
 }
 
+// getDatabaseForFile does what you think it does
 func getDatabaseForFile(database string) *sql.DB {
 	dbMutex.Lock()
 	defer dbMutex.Unlock()

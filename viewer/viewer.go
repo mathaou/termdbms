@@ -17,152 +17,67 @@ var (
 )
 
 const (
-	highlight = "#0168B3"
-	maximumRendererCharacters = 1024
-	useHighPerformanceRenderer = false
+	highlight                 = "#0168B3" // change to whatever
+	headerForeground          = "#FFFFFF"
+	headerBorderBackground    = "#231F20"
+	maximumRendererCharacters = 1024 // this is kind of arbitrary
 )
 
+// TuiModel holds all the necessary state for this app to work the way I designed it to
 type TuiModel struct {
-	Table          map[string]interface{}
-	TableHeaders   map[string][]string
-	TableIndexMap  map[int]string
-	TableSelection int
-	ready          bool
+	Table           map[string]interface{}
+	TableHeaders    map[string][]string
+	TableIndexMap   map[int]string
+	TableSelection  int
+	ready           bool
 	renderSelection bool
-	viewport       viewport.Model
-	tableStyle     lipgloss.Style
-	mouseEvent     tea.MouseEvent
+	viewport        viewport.Model
+	tableStyle      lipgloss.Style
+	mouseEvent      tea.MouseEvent
 }
 
 // INIT UPDATE AND RENDER
 
+// Init currently doesn't do anything but necessary for interface adherence
 func (m TuiModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var (
-		cmd  tea.Cmd
-		cmds []tea.Cmd
-	)
-
-	switch msg := msg.(type) {
+// Update is where all commands and whatnot get processed
+func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := message.(type) {
 	case tea.MouseMsg:
-		if !m.renderSelection {
-			m.mouseEvent = tea.MouseEvent(msg)
-		}
-		tbl := m.GetTable()
-		if msg.Type == tea.MouseWheelDown {
-			scrollDown(&m, tbl)
-		} else if msg.Type == tea.MouseWheelUp {
-			scrollUp(&m)
-		} else if msg.Type == tea.MouseLeft {
-			selectOption(&m, tbl)
-		}
+		handleMouseEvents(&m, &msg)
 		break
 	case tea.WindowSizeMsg:
-		verticalMargins := headerHeight + footerHeight
-
-		if !m.ready {
-			m.viewport = viewport.Model{
-				Width: msg.Width,
-				Height: msg.Height - verticalMargins}
-			m.viewport.YPosition = headerHeight
-			m.viewport.HighPerformanceRendering = useHighPerformanceRenderer // find some way to fix this
-			m.ready = true
-			m.tableStyle = m.GetBaseStyle()
-			m.mouseEvent.Y = headerHeight
-		} else {
-			m.viewport.Width = msg.Width
-			m.viewport.Height = msg.Height - verticalMargins
-		}
-
-
-		if useHighPerformanceRenderer {
-			cmds = append(cmds, viewport.Sync(m.viewport))
-		}
-
+		handleWidowSizeEvents(&m, &msg)
 		break
 	case tea.KeyMsg:
+		// when fullscreen selection viewing is in session, don't allow UI manipulation other than quit or exit
 		if m.renderSelection &&
 			msg.String() != "esc" &&
 			msg.String() != "ctrl+c" &&
 			msg.String() != "q" {
 			break
 		}
-		switch msg.String() {
-		case "ctrl+c", "q":
+		if msg.String() == "ctrl+c" || msg.String() == "q" {
 			return m, tea.Quit
-		case "up", "k":
-			if m.TableSelection == len(m.TableIndexMap) {
-				m.TableSelection = 1
-			} else {
-				m.TableSelection++
-			}
-
-			m.tableStyle = m.tableStyle.Width(m.CellWidth())
-			m.viewport.YOffset = 0
-			break
-		case "down", "j":
-			if m.TableSelection == 1 {
-				m.TableSelection = len(m.TableIndexMap)
-			} else {
-				m.TableSelection--
-			}
-
-			m.tableStyle = m.tableStyle.Width(m.CellWidth())
-			m.viewport.YOffset = 0
-			break
-		case "s":
-			max := len(m.GetTable()[m.GetHeaders()[m.GetColumn()]])
-
-			if m.mouseEvent.Y - headerHeight < max-1 {
-				m.mouseEvent.Y++
-			}
-
-			break
-		case "w":
-			if m.mouseEvent.Y > headerHeight && m.viewport.YOffset < m.mouseEvent.Y {
-				m.mouseEvent.Y--
-			}
-			break
-		case "d":
-			if m.mouseEvent.X + m.CellWidth() <= m.viewport.Width {
-				m.mouseEvent.X += m.CellWidth()
-			}
-			break
-		case "a":
-			if m.mouseEvent.X - m.CellWidth() >= 0 {
-				m.mouseEvent.X -= m.CellWidth()
-			}
-			break
-		case "enter":
-			selectOption(&m, m.GetTable())
-			break
-		case "m":
-			scrollUp(&m)
-			break
-		case "n":
-			scrollDown(&m, m.GetTable())
-			break
-		case "esc":
-			m.renderSelection = false
-			break
 		}
-	}
-	m.viewport, cmd = m.viewport.Update(msg)
-	if useHighPerformanceRenderer {
-		cmds = append(cmds, cmd)
-	}
 
-	return m, tea.Batch(cmds...)
+		handleKeyboardEvents(&m, &msg)
+	}
+	m.viewport, _ = m.viewport.Update(message)
+
+	return m, nil
 }
 
+// View is where all rendering happens
 func (m TuiModel) View() string {
 	if !m.ready || m.viewport.Width == 0 {
 		return "\n  Initializing..."
 	}
 
+	// this ensures that all 3 parts can be worked on concurrently(ish)
 	done := make(chan bool, 3)
 
 	var footer, header, content string
@@ -178,20 +93,20 @@ func (m TuiModel) View() string {
 		var builder strings.Builder
 		style := m.tableStyle.
 			Width(m.CellWidth()).
-			Foreground(lipgloss.Color("#FFFFFF")).
-			BorderBackground(lipgloss.Color("#231F20"))
-		for _, d := range m.GetHeaders() {
+			Foreground(lipgloss.Color(headerForeground)).
+			BorderBackground(lipgloss.Color(headerBorderBackground))
+		for _, d := range m.GetHeaders() { // write all headers
 			builder.WriteString(style.
 				Render(d))
 		}
 
-		m.tableStyle = m.GetBaseStyle()
-
+		// schema name
 		headerTop := lipgloss.NewStyle().
 			Underline(true).
 			Faint(true).
 			Render(fmt.Sprintf("%s (%d)",
-				m.GetTableName(), m.TableSelection))
+				m.GetSchemaName(), m.TableSelection))
+		// separator
 		headerBot := strings.Repeat(lipgloss.NewStyle().
 			Align(lipgloss.Center).
 			Faint(true).
@@ -207,7 +122,7 @@ func (m TuiModel) View() string {
 		done <- true
 	}(&header)
 
-	// footer
+	// footer (shows row/col for now)
 	go func(f *string) {
 		footerTop := "╭──────╮"
 		footerMid := fmt.Sprintf("┤ %d, %d  ", m.GetRow(), m.GetColumn())
@@ -221,13 +136,14 @@ func (m TuiModel) View() string {
 		done <- true
 	}(&footer)
 
+	// block until all 3 done
 	<-done
 	<-done
 	<-done
 
-	close(done)
+	close(done) // close
 
 	m.viewport.SetContent(content)
 
-	return fmt.Sprintf("%s\n%s\n%s", header, m.viewport.View(), footer)
+	return fmt.Sprintf("%s\n%s\n%s", header, m.viewport.View(), footer) // render
 }
