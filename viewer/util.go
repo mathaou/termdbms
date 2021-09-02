@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/charmbracelet/lipgloss"
-	"io/ioutil"
 	"math"
 	"os"
 	"strconv"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 // GetNewModel returns a TuiModel struct with some fields set
@@ -170,7 +170,7 @@ func displaySelection(m *TuiModel) string {
 	}
 	if len(prettyPrint) > maximumRendererCharacters {
 		fileName := m.GetSchemaName() + "_" + selectedColumn + "_" + strconv.Itoa(row) + ".txt"
-		e := ioutil.WriteFile(fileName, []byte(prettyPrint), 0777)
+		e := os.WriteFile(fileName, []byte(prettyPrint), 0777)
 		if e != nil {
 			return fmt.Sprintf("Error writing file %v", e)
 		}
@@ -200,7 +200,7 @@ func IsUrl(fp string) bool {
 
 	// Attempt to create it
 	var d []byte
-	if err := ioutil.WriteFile(fp, d, 0644); err == nil {
+	if err := os.WriteFile(fp, d, 0644); err == nil {
 		os.Remove(fp) // And delete it
 		return true
 	}
