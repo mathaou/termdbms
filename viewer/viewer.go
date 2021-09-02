@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
+	"math"
 	"strings"
 )
 
@@ -18,8 +19,8 @@ var (
 
 const (
 	highlight                 = "#0168B3" // change to whatever
-	headerForeground          = "#FFFFFF"
-	headerBorderBackground    = "#231F20"
+	headerForeground          = "#231F20"
+	headerBorderBackground    = "#AAAAAA"
 	maximumRendererCharacters = 1024 // this is kind of arbitrary
 )
 
@@ -90,14 +91,23 @@ func (m TuiModel) View() string {
 
 	// header
 	go func(h *string) {
-		var builder strings.Builder
-		style := m.tableStyle.
-			Width(m.CellWidth()).
+		var builder []string
+		cw := m.CellWidth()
+		style := m.GetBaseStyle().
+			Width(cw).
 			Foreground(lipgloss.Color(headerForeground)).
-			BorderBackground(lipgloss.Color(headerBorderBackground))
-		for _, d := range m.GetHeaders() { // write all headers
-			builder.WriteString(style.
-				Render(d))
+			Background(lipgloss.Color(headerBorderBackground))
+		headers := m.GetHeaders()
+		for _, d := range headers { // write all headers
+			max := float64(cw)
+			minVal := int(math.Min(float64(len(d)), max))
+			s := d[:minVal]
+			if int(max) == minVal { // truncate
+				s = s[:len(s)-3] + "..."
+			}
+
+			builder = append(builder, style.
+				Render(s))
 		}
 
 		// schema name
@@ -112,7 +122,7 @@ func (m TuiModel) View() string {
 			Faint(true).
 			Render("-"),
 			m.viewport.Width)
-		headerMid := builder.String()
+		headerMid := strings.Join(builder, "")
 		headerMid = headerMid + strings.Repeat(" ", m.viewport.Width)
 		*h = fmt.Sprintf("%s\n%s\n%s",
 			headerTop,
@@ -125,7 +135,7 @@ func (m TuiModel) View() string {
 	// footer (shows row/col for now)
 	go func(f *string) {
 		footerTop := "╭──────╮"
-		footerMid := fmt.Sprintf("┤ %d, %d  ", m.GetRow(), m.GetColumn())
+		footerMid := fmt.Sprintf("┤ %d, %d ", m.GetRow(), m.GetColumn())
 		footerBot := "╰──────╯"
 		gapSize := m.viewport.Width - runewidth.StringWidth(footerMid)
 		footerTop = strings.Repeat(" ", gapSize) + footerTop

@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 	"os"
 	. "sqlite3-viewer/viewer"
 	"strings"
@@ -20,7 +20,7 @@ var (
 
 const (
 	getTableNamesQuery = "SELECT name FROM sqlite_master WHERE type='table'"
-	debugPath          = "/home/mfarstad/Desktop/chinook.db" // set to whatever hardcoded path for testing
+	debugPath          = "" // set to whatever hardcoded path for testing
 )
 
 func init() {
@@ -35,7 +35,7 @@ func main() {
 	var path string
 	var help bool
 
-	debug := true
+	debug := false
 	// if not debug, then this section parses and validates cmd line arguments
 	if !debug {
 		flag.Usage = func() {
@@ -159,9 +159,14 @@ func setModel(c *sql.Rows, db *sql.DB) {
 
 			c.Scan(columnPointers...)
 
-			for i, colName := range columnNames {
+			i := 0
+			for _, colName := range columnNames {
+				if colName == "" {
+					continue
+				}
 				val := columnPointers[i].(*interface{})
 				columnValues[colName] = append(columnValues[colName], *val)
+				i++
 			}
 		}
 
@@ -174,7 +179,7 @@ func setModel(c *sql.Rows, db *sql.DB) {
 	}
 
 	// set the first table to be initial view
-	initialModel.TableSelection = 1
+	initialModel.TableSelection = 7
 }
 
 // getDatabaseForFile does what you think it does
@@ -184,7 +189,7 @@ func getDatabaseForFile(database string) *sql.DB {
 	if db, ok := dbs[database]; ok {
 		return db
 	}
-	db, err := sql.Open("sqlite3", database)
+	db, err := sql.Open("sqlite", database)
 	if err != nil {
 		panic(err)
 	}

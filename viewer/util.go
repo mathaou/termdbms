@@ -7,7 +7,7 @@ import (
 	"math"
 	"os"
 	"strconv"
-
+	"time"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -37,9 +37,13 @@ func (m *TuiModel) CellWidth() int {
 func (m *TuiModel) GetBaseStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
 		Width(m.CellWidth()).
+		MaxWidth(m.CellWidth()).
 		Align(lipgloss.Left).
-		BorderRight(true).
-		BorderLeft(true)
+		Padding(0).
+		Margin(0)
+		//BorderRight(true).
+		//BorderLeft(true).
+		//BorderStyle(lipgloss.NormalBorder())
 }
 
 // GetColumn gets the column the mouse cursor is in
@@ -89,7 +93,7 @@ func scrollDown(m *TuiModel) {
 	}
 	if m.viewport.YOffset < max-1 {
 		m.viewport.YOffset++
-		m.mouseEvent.Y++
+		m.mouseEvent.Y = int(math.Min(float64(m.mouseEvent.Y), float64(m.viewport.YPosition)))
 	}
 }
 
@@ -97,7 +101,7 @@ func scrollDown(m *TuiModel) {
 func scrollUp(m *TuiModel) {
 	if m.viewport.YOffset > 0 {
 		m.viewport.YOffset--
-		m.mouseEvent.Y--
+		m.mouseEvent.Y = int(math.Min(float64(m.mouseEvent.Y), float64(m.viewport.YPosition)))
 	} else {
 		m.mouseEvent.Y = headerHeight
 	}
@@ -125,6 +129,7 @@ func displayTable(m *TuiModel) string {
 	for c, columnName := range m.GetHeaders() {
 		var rowBuilder []string
 		columnValues := columnNamesToInterfaceArray[columnName]
+
 		for r, val := range columnValues {
 			base := m.GetBaseStyle()
 			if c == m.GetColumn() && r == m.GetRow() {
@@ -140,6 +145,18 @@ func displayTable(m *TuiModel) string {
 				rowBuilder = append(rowBuilder, base.Render(s))
 			} else if i, ok := val.(int64); ok {
 				rowBuilder = append(rowBuilder, base.Render(fmt.Sprintf("%d", i)))
+			} else if i, ok := val.(float64); ok {
+				rowBuilder = append(rowBuilder, base.Render(fmt.Sprintf("%.2f%%", i)))
+			} else if t, ok := val.(time.Time); ok {
+				cw := m.CellWidth()
+				str := t.String()
+				s := str[:cw]
+				if len(s) == cw {
+					s = s[:len(s) - 3] + "..."
+				}
+				rowBuilder = append(rowBuilder, base.Render(s))
+			} else if val == nil {
+				rowBuilder = append(rowBuilder, base.Render("NULL"))
 			}
 		}
 
@@ -162,11 +179,25 @@ func displaySelection(m *TuiModel) string {
 	raw := col[row]
 
 	var prettyPrint string
+	base := m.GetBaseStyle()
+
 	if _, ok := raw.(string); ok {
 		p, _ := formatJson(raw.(string))
 		prettyPrint = p
 	} else if _, ok := raw.(int64); ok {
 		prettyPrint = strconv.Itoa(int(raw.(int64)))
+	} else if i, ok := raw.(float64); ok {
+		prettyPrint = base.Render(fmt.Sprintf("%3f%%", i))
+	} else if t, ok := raw.(time.Time); ok {
+		cw := m.CellWidth()
+		str := t.String()
+		s := str[:cw]
+		if len(s) == cw {
+			s = s[:len(s) - 3] + "..."
+		}
+		prettyPrint = base.Render(s)
+	} else if raw == nil {
+		prettyPrint = base.Render("NULL")
 	}
 	if len(prettyPrint) > maximumRendererCharacters {
 		fileName := m.GetSchemaName() + "_" + selectedColumn + "_" + strconv.Itoa(row) + ".txt"

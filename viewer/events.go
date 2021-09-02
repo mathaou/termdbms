@@ -7,16 +7,21 @@ import (
 
 // handleMouseEvents does that
 func handleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
-	if !m.renderSelection {
-		m.mouseEvent = tea.MouseEvent(*msg)
-	}
-
-	if msg.Type == tea.MouseWheelDown {
+	switch msg.Type {
+	case tea.MouseWheelDown:
 		scrollDown(m)
-	} else if msg.Type == tea.MouseWheelUp {
+		break
+	case tea.MouseWheelUp:
 		scrollUp(m)
-	} else if msg.Type == tea.MouseLeft {
+		break
+	case tea.MouseLeft:
 		selectOption(m)
+		break
+	default:
+		if !m.renderSelection {
+			m.mouseEvent = tea.MouseEvent(*msg)
+		}
+		break
 	}
 }
 
@@ -69,6 +74,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 
 		if m.mouseEvent.Y-headerHeight < max-1 {
 			m.mouseEvent.Y++
+		} else {
+			m.mouseEvent.Y = max
 		}
 
 		break
