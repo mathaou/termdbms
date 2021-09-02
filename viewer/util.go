@@ -153,9 +153,9 @@ func displaySelection(m *TuiModel) string {
 		if e != nil {
 			return fmt.Sprintf("Error writing file %v", e)
 		}
-		return fmt.Sprintf("Selected string exceeds maximum limit of %d characters. " +
+		return fmt.Sprintf("Selected string exceeds maximum limit of %d characters. \n" +
 			"The file was written to your current working " +
-			"directory for your convenience with the filename %s.", maximumRendererCharacters, fileName)
+			"directory for your convenience with the filename \n%s.", maximumRendererCharacters, fileName)
 	} else {
 		return prettyPrint
 	}

@@ -52,7 +52,7 @@ func main() {
 	var path string
 	var help bool
 
-	debug := true
+	debug := false
 	if !debug {
 		flag.Usage = func(){
 			fmt.Println("NOTE: Mouse controls don't work for remote sessions like serial or SSH. " +

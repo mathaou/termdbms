@@ -101,6 +101,7 @@ func (m TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			m.tableStyle = m.tableStyle.Width(m.CellWidth())
+			m.viewport.YOffset = 0
 			break
 		case "down", "j":
 			if m.TableSelection == 1 {
@@ -110,6 +111,7 @@ func (m TuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			m.tableStyle = m.tableStyle.Width(m.CellWidth())
+			m.viewport.YOffset = 0
 			break
 		case "s":
 			max := len(m.GetTable()[m.GetHeaders()[m.GetColumn()]])
