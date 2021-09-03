@@ -31,4 +31,5 @@ Large databases (thousands of rows) make it slow sometimes. PRs open for optimiz
 	[M(scroll up) and N(scroll down)] to scroll manually
 	[Q or CTRL+C] to quit program
     [B] to toggle borders!
+    [C] to expand column
 	[ESC] to exit full screen view
