@@ -1,20 +1,27 @@
 package viewer
 
 import (
-	"database/sql"
-	"fmt"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"os"
-	"strings"
 )
 
 const (
 	getTableNamesQuery = "SELECT name FROM sqlite_master WHERE type='table'"
 )
 
+var (
+	inputBlacklist = []string{
+		"esc",
+	}
+)
+
 // handleMouseEvents does that
 func handleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
+	if m.editModeEnabled {
+		return
+	}
+
 	switch msg.Type {
 	case tea.MouseWheelDown:
 		scrollDown(m)
@@ -52,20 +59,90 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) {
 	}
 }
 
-func toggleColumn(m *TuiModel) {
-	if m.expandColumn > -1 {
-		m.expandColumn = -1
-	} else {
-		m.expandColumn = m.GetColumn()
-	}
-}
-
 // handleKeyboardEvents does that
 func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
-	switch msg.String() {
+	str := msg.String()
+	val := m.textInput.Value() + str
+	if m.editModeEnabled && val != ":q" {
+		m.textInput.SetCursorMode(textinput.CursorBlink)
+		for _, v := range inputBlacklist {
+			if str == v {
+				m.textInput.SetValue("")
+				return
+			}
+		}
+
+		if str == "backspace" {
+			val := m.textInput.Value()
+			if len(val) > 0 {
+				m.textInput.SetValue(val[:len(val) - 1])
+			}
+		} else if str == "enter" { // writes your selection
+			if len(m.actionStack) >= 10 {
+				m.actionStack = m.actionStack[1:]
+			}
+
+			deepCopy := m.CopyMap()
+			m.actionStack = append(m.actionStack, deepCopy)
+			raw, _, _ := m.GetSelectedOption()
+			*raw = m.textInput.Value()
+			m.editModeEnabled = false
+			m.textInput.SetValue("")
+		} else {
+			m.textInput.SetValue(m.textInput.Value() + msg.String())
+		}
+
+		return
+	} else if m.editModeEnabled && val == ":q" { // quit mod mode
+		m.editModeEnabled = false
+		m.textInput.SetValue("")
+		return
+	} else if m.editModeEnabled && val == ":s" {
+		m.Serialize()
+	} else if m.editModeEnabled && val == ":!s" {
+		m.SerializeOverwrite()
+	}
+
+	switch str {
+	case "u": // undo
+		if len(m.actionStack) > 0 { // TODO: make this a from/to swap as a function
+			from := m.actionStack[len(m.actionStack) - 1]
+			to := m.Table
+
+			for k, v := range from {
+				if copyValues, ok := v.(map[string][]interface{}); ok {
+					columnNames := m.TableHeaders[k]
+					columnValues := make(map[string][]interface{})
+					// golang wizardry
+					columns := make([]interface{}, len(columnNames))
+
+					for i, _ := range columns {
+						columns[i] = copyValues[columnNames[i]][0]
+					}
+
+					for i, colName := range columnNames {
+						columnValues[colName] = columns[i].([]interface{})
+					}
+
+					to[k] = columnValues // data for schema, organized by column
+				}
+			}
+
+			m.actionStack = m.actionStack[0:len(m.actionStack) - 1]
+		}
+		break
+	case ":":
+		raw, _, col := m.GetSelectedOption()
+		if m.GetRow() >= len(col) {
+			break
+		}
+
+		m.editModeEnabled = true
+		m.textInput.SetValue(GetStringRepresentationOfInterface(m, *raw))
+		break
 	case "p":
 		if m.renderSelection {
-			WriteText(m, m.selectionText)
+			WriteTextFile(m, m.selectionText)
 		}
 		break
 	case "c":
@@ -122,7 +199,9 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		}
 		break
 	case "enter": // manual trigger for select highlighted cell
-		selectOption(m)
+		if !m.editModeEnabled {
+			selectOption(m)
+		}
 		break
 	case "m": // scroll up manually
 		scrollUp(m)
@@ -137,73 +216,4 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		m.viewport.YOffset = m.preScrollYOffset
 		break
 	}
-}
-
-// SetModel creates a model to be used by bubbletea using some golang wizardry
-func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
-	var err error
-	indexMap := 0
-
-	// gets all the schema names of the database
-	rows, err := db.Query(getTableNamesQuery)
-	if err != nil {
-		fmt.Printf("%v", err)
-		os.Exit(1)
-	}
-	defer rows.Close()
-
-	// for each schema
-	for rows.Next() {
-		var schemaName string
-		rows.Scan(&schemaName)
-
-		// couldn't get prepared statements working and gave up because it was very simple
-		var statement strings.Builder
-		statement.WriteString("select * from ")
-		statement.WriteString(schemaName)
-
-		if c != nil {
-			c.Close()
-			c = nil
-		}
-		c, err = db.Query(statement.String())
-		if err != nil {
-			panic(err)
-		}
-
-		columnNames, _ := c.Columns()
-		columnValues := make(map[string][]interface{})
-
-		for c.Next() { // each row of the table
-			// golang wizardry
-			columns := make([]interface{}, len(columnNames))
-			columnPointers := make([]interface{}, len(columnNames))
-			// init interface array
-			for i, _ := range columns {
-				columnPointers[i] = &columns[i]
-			}
-
-			c.Scan(columnPointers...)
-
-			i := 0
-			for _, colName := range columnNames {
-				if colName == "" {
-					continue
-				}
-				val := columnPointers[i].(*interface{})
-				columnValues[colName] = append(columnValues[colName], *val)
-				i++
-			}
-		}
-
-		// onto the next schema
-		indexMap++
-		m.Table[schemaName] = columnValues       // data for schema, organized by column
-		m.TableHeaders[schemaName] = columnNames // headers for the schema, for later reference
-		// mapping between schema and an int ( since maps aren't deterministic), for later reference
-		m.TableIndexMap[indexMap] = schemaName
-	}
-
-	// set the first table to be initial view
-	m.TableSelection = 1
 }

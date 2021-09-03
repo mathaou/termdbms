@@ -18,7 +18,7 @@ var (
 )
 
 const (
-	debugPath          = "" // set to whatever hardcoded path for testing
+	debugPath = "/home/mfarstad/Desktop/megastore.db" // set to whatever hardcoded path for testing
 )
 
 func init() {
@@ -31,7 +31,7 @@ func main() {
 	var path string
 	var help bool
 
-	debug := false
+	debug := true
 	// if not debug, then this section parses and validates cmd line arguments
 	if !debug {
 		flag.Usage = func() {
@@ -101,7 +101,7 @@ func main() {
 	}
 
 	// gets a sqlite instance for the database file
-	if exists , _ := FileExists(path); exists {
+	if exists, _ := FileExists(path); exists {
 		fmt.Printf("ERROR: Database file could not be found at %s\n", path)
 		os.Exit(1)
 	}

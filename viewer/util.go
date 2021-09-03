@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
 	"math"
 	"math/rand"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -25,6 +25,8 @@ func GetNewModel() TuiModel {
 		expandColumn:    -1,
 		ready:           false,
 		renderSelection: false,
+		editModeEnabled: false,
+		textInput: textinput.NewModel(),
 	}
 }
 
@@ -85,6 +87,20 @@ func (m *TuiModel) GetSchemaData() map[string][]interface{} {
 	return m.Table[n].(map[string][]interface{})
 }
 
+func (m *TuiModel) GetSelectedOption() (*interface{}, int, []interface{}) {
+	m.preScrollYOffset = m.viewport.YOffset
+	m.preScrollYPosition = m.mouseEvent.Y
+	selectedColumn := m.GetHeaders()[m.GetColumn()]
+	col := m.GetSchemaData()[selectedColumn]
+	row := m.GetRow()
+	if row >= len(col) {
+		return nil, row, col
+	}
+	return &col[row], row, col
+}
+
+// non interface helper methods
+
 func TruncateIfApplicable(m *TuiModel, conv string) string {
 	max := func() float64 { // this might be kind of hacky, but it works
 		if m.renderSelection || m.expandColumn > -1 {
@@ -102,186 +118,27 @@ func TruncateIfApplicable(m *TuiModel, conv string) string {
 	return s
 }
 
-// selectOption does just that
-func selectOption(m *TuiModel) {
-	m.preScrollYOffset = m.viewport.YOffset
-	m.preScrollYPosition = m.mouseEvent.Y
-	selectedColumn := m.GetHeaders()[m.GetColumn()]
-	col := m.GetSchemaData()[selectedColumn]
-	row := m.GetRow()
-	l := len(col)
-
-	if row < l && l > 0 {
-		m.renderSelection = true
-
-		raw := col[row]
-		if conv, ok := raw.(string); ok {
-			if format, err := formatJson(conv); err == nil {
-				m.selectionText = format
-			} else {
-				m.selectionText = TruncateIfApplicable(m, conv)
-			}
-		} else {
-			m.selectionText = ""
-		}
-	}
-}
-
-func getScrollDownMaxForSelection(m *TuiModel) int {
-	max := 0
-	if m.renderSelection {
-		conv, _ := formatJson(m.selectionText)
-		lines := SplitLines(conv)
-		max = len(lines)
-	} else {
-		for _, v := range m.GetSchemaData() {
-			if len(v) > max {
-				max = len(v)
-			}
-		}
-	}
-
-	return max
-}
-
-// scrollDown is a simple function to move the viewport down
-func scrollDown(m *TuiModel) {
-	max := getScrollDownMaxForSelection(m)
-
-	if m.viewport.YOffset < max-1 {
-		m.viewport.YOffset++
-		m.mouseEvent.Y = int(math.Min(float64(m.mouseEvent.Y), float64(m.viewport.YPosition)))
-	}
-}
-
-// scrollUp is a simple function to move the viewport up
-func scrollUp(m *TuiModel) {
-	if m.viewport.YOffset > 0 {
-		m.viewport.YOffset--
-		m.mouseEvent.Y = int(math.Min(float64(m.mouseEvent.Y), float64(m.viewport.YPosition)))
-	} else {
-		m.mouseEvent.Y = headerHeight
-	}
-}
-
-// formatJson is some more code I stole off stackoverflow
-func formatJson(str string) (string, error) {
-	b := []byte(str)
-	if !json.Valid(b) { // return original string if not json
-		return str, errors.New("this is not valid JSON")
-	}
-	var formattedJson bytes.Buffer
-	if err := json.Indent(&formattedJson, b, "", "    "); err != nil {
-		return "", err
-	}
-	return formattedJson.String(), nil
-}
-
-// displayTable does some fancy stuff to get a table rendered in text
-func displayTable(m *TuiModel) string {
-	var builder []string
-	columnNamesToInterfaceArray := m.GetSchemaData()
-
-	// go through all columns
-	for c, columnName := range m.GetHeaders() {
-		if m.expandColumn > -1 && m.expandColumn != c {
-			continue
-		}
-
-		var rowBuilder []string
-		columnValues := columnNamesToInterfaceArray[columnName]
-
-		for r, val := range columnValues {
-			base := m.GetBaseStyle()
-			// handle highlighting
-			if c == m.GetColumn() && r == m.GetRow() {
-				base.Foreground(lipgloss.Color(highlight))
-			}
-			// display text based on type
-			if str, ok := val.(string); ok {
-				rowBuilder = append(rowBuilder, base.Render(TruncateIfApplicable(m, str)))
-			} else if i, ok := val.(int64); ok {
-				rowBuilder = append(rowBuilder, base.Render(fmt.Sprintf("%d", i)))
-			} else if i, ok := val.(float64); ok {
-				rowBuilder = append(rowBuilder, base.Render(fmt.Sprintf("%.2f", i)))
-			} else if t, ok := val.(time.Time); ok {
-				cw := m.CellWidth()
-				str := t.String()
-				minVal := int(math.Min(float64(len(str)), float64(cw)))
-				s := str[:minVal]
-				if len(s) == cw {
-					s = s[:len(s)-3] + "..."
-				}
-				rowBuilder = append(rowBuilder, base.Render(s))
-			} else if val == nil {
-				rowBuilder = append(rowBuilder, base.Render("NULL"))
-			}
-		}
-
-		// get a list of columns
-		builder = append(builder, lipgloss.JoinVertical(lipgloss.Left, rowBuilder...))
-	}
-
-	// join them into rows
-	return lipgloss.JoinHorizontal(lipgloss.Left, builder...)
-}
-
-// displaySelection does that or writes it to a file if the selection is over a limit
-func displaySelection(m *TuiModel) string {
-	selectedColumn := m.GetHeaders()[m.GetColumn()]
-	col := m.GetSchemaData()[selectedColumn]
-	m.expandColumn = m.GetColumn()
-	row := m.GetRow()
-	if m.mouseEvent.Y >= m.viewport.Height + headerHeight && !m.renderSelection { // this is for when the selection is outside the bounds
-		return displayTable(m)
-	}
-
-	base := m.GetBaseStyle()
-
-	if m.selectionText != "" {
-		rows := SplitLines(m.selectionText)
-		return base.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
-	}
-
-	var prettyPrint string
-	raw := col[row]
-
-	if conv, ok := raw.(int64); ok {
-		prettyPrint = strconv.Itoa(int(conv))
-	} else if i, ok := raw.(float64); ok {
-		prettyPrint = base.Render(fmt.Sprintf("%.2f", i))
-	} else if t, ok := raw.(time.Time); ok {
+func GetStringRepresentationOfInterface(m *TuiModel, val interface{}) string {
+	if str, ok := val.(string); ok {
+		return TruncateIfApplicable(m, str)
+	} else if i, ok := val.(int64); ok {
+		return fmt.Sprintf("%d", i)
+	} else if i, ok := val.(float64); ok {
+		return fmt.Sprintf("%.2f", i)
+	} else if t, ok := val.(time.Time); ok {
 		str := t.String()
-		prettyPrint = base.Render(TruncateIfApplicable(m, str))
-	} else if raw == nil {
-		prettyPrint = base.Render("NULL")
-	}
-	if len(prettyPrint) > maximumRendererCharacters {
-		fileName, err := WriteText(m, prettyPrint)
-		if err != nil {
-			fmt.Printf("ERROR: could not write file %d", fileName)
-		}
-		return fmt.Sprintf("Selected string exceeds maximum limit of %d characters. \n"+
-			"The file was written to your current working "+
-			"directory for your convenience with the filename \n%s.", maximumRendererCharacters, fileName)
+		return TruncateIfApplicable(m, str)
+	} else if val == nil {
+		return "NULL"
 	}
 
-	return prettyPrint
+	return ""
 }
 
-func WriteText(m *TuiModel, text string) (string, error) {
+func WriteTextFile(m *TuiModel, text string) (string, error) {
 	fileName := m.GetSchemaName() + "_" + "renderView_" + fmt.Sprintf("%d", rand.Int()) + ".txt"
 	e := os.WriteFile(fileName, []byte(text), 0777)
 	return fileName, e
-}
-
-// assembleTable shows either the selection text or the table
-func assembleTable(m *TuiModel) string {
-	if m.renderSelection {
-		return displaySelection(m)
-	}
-
-	return displayTable(m)
 }
 
 // IsUrl is some code I stole off stackoverflow to validate paths
@@ -319,4 +176,74 @@ func SplitLines(s string) []string {
 		lines = append(lines, sc.Text())
 	}
 	return lines
+}
+
+func (m *TuiModel) CopyMap() (to map[string]interface{}) {
+	from := m.Table
+	to = map[string]interface{}{}
+
+	for k, v := range from {
+		if copyValues, ok := v.(map[string][]interface{}); ok {
+			columnNames := m.TableHeaders[k]
+			columnValues := make(map[string][]interface{})
+			// golang wizardry
+			columns := make([]interface{}, len(columnNames))
+
+			for i, _ := range columns {
+				columns[i] = copyValues[columnNames[i]]
+			}
+
+			for i, colName := range columnNames {
+				val := columns[i].([]interface{})
+				copy := make([]interface{}, len(val))
+				for k, _ := range val {
+					copy[k] = val[k]
+				}
+				columnValues[colName] = append(columnValues[colName], copy)
+			}
+
+			to[k] = columnValues // data for schema, organized by column
+		}
+	}
+
+	return to
+}
+
+// assembleTable shows either the selection text or the table
+func assembleTable(m *TuiModel) string {
+	if m.renderSelection {
+		return displaySelection(m)
+	}
+
+	return displayTable(m)
+}
+
+func getScrollDownMaxForSelection(m *TuiModel) int {
+	max := 0
+	if m.renderSelection {
+		conv, _ := formatJson(m.selectionText)
+		lines := SplitLines(conv)
+		max = len(lines)
+	} else {
+		for _, v := range m.GetSchemaData() {
+			if len(v) > max {
+				max = len(v)
+			}
+		}
+	}
+
+	return max
+}
+
+// formatJson is some more code I stole off stackoverflow
+func formatJson(str string) (string, error) {
+	b := []byte(str)
+	if !json.Valid(b) { // return original string if not json
+		return str, errors.New("this is not valid JSON")
+	}
+	var formattedJson bytes.Buffer
+	if err := json.Indent(&formattedJson, b, "", "    "); err != nil {
+		return "", err
+	}
+	return formattedJson.String(), nil
 }
