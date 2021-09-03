@@ -20,7 +20,7 @@ var (
 
 const (
 	getTableNamesQuery = "SELECT name FROM sqlite_master WHERE type='table'"
-	debugPath          = "C:\\Users\\matth\\OneDrive\\Desktop\\chinook.db" // set to whatever hardcoded path for testing
+	debugPath          = "" // set to whatever hardcoded path for testing
 )
 
 func init() {
@@ -62,7 +62,7 @@ func main() {
 
 		argLength := len(os.Args[1:])
 		if argLength > 2 || argLength == 0 {
-			fmt.Printf("Invalid number of arguments supplied: %d\n", argLength)
+			fmt.Printf("ERROR: Invalid number of arguments supplied: %d\n", argLength)
 			flag.Usage()
 			os.Exit(1)
 		}
@@ -73,13 +73,19 @@ func main() {
 
 		flag.Parse()
 
+		if flag.NFlag() == 0 {
+			fmt.Printf("ERROR: Path to database file must be given with the -p flag.\n")
+			flag.Usage()
+			os.Exit(1)
+		}
+
 		if help {
 			flag.Usage()
 			os.Exit(0)
 		}
 
 		if path != "" && !IsUrl(path) {
-			fmt.Printf("Invalid path %s\n", path)
+			fmt.Printf("ERROR: Invalid path %s\n", path)
 			flag.Usage()
 			os.Exit(1)
 		}
@@ -97,6 +103,10 @@ func main() {
 	}
 
 	// gets a sqlite instance for the database file
+	if exists , _ := FileExists(path); exists {
+		fmt.Printf("ERROR: Database file could not be found at %s\n", path)
+		os.Exit(1)
+	}
 	db := getDatabaseForFile(path)
 	defer db.Close()
 
@@ -106,11 +116,10 @@ func main() {
 	// creates the program
 	p := tea.NewProgram(initialModel,
 		tea.WithAltScreen(),
-		tea.WithoutCatchPanics(),
 		tea.WithMouseAllMotion())
 
 	if err := p.Start(); err != nil {
-		fmt.Printf("Error initializing the sqlite viewer: %v", err)
+		fmt.Printf("ERROR: Error initializing the sqlite viewer: %v", err)
 		os.Exit(1)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 	"math"
+	"runtime"
 	"strings"
 )
 
@@ -15,6 +16,7 @@ var (
 	height       int
 	headerHeight = 3
 	footerHeight = 3
+	newline      string
 )
 
 const (
@@ -43,6 +45,10 @@ type TuiModel struct {
 
 // Init currently doesn't do anything but necessary for interface adherence
 func (m TuiModel) Init() tea.Cmd {
+	newline = "\n"
+	if runtime.GOOS == "windows" {
+		newline = "\r\n"
+	}
 	return nil
 }
 
@@ -80,8 +86,8 @@ func (m TuiModel) View() string {
 		return "\n  Initializing..."
 	}
 
-	// this ensures that all 3 parts can be worked on concurrently(ish)
-	done := make(chan bool, 3)
+	// this ensures that all 4 parts can be worked on concurrently(ish)
+	done := make(chan bool, 4)
 
 	var footer, header, content string
 
@@ -153,9 +159,29 @@ func (m TuiModel) View() string {
 	<-done
 	<-done
 
+	var viewport string
+	// TODO: improve this or rework this to improve performance on very large collections
+	// this could actually be doing basically nothing but w/e
+	go func(viewport *string) {
+		rows := SplitLines(content) // content can be very large by itself so creating a slice out of it kind of
+									// doubles the overhead...
+		min := m.viewport.YOffset
+		max := int(math.Min(float64(m.viewport.YOffset+m.viewport.Height), float64(len(rows))))
+		s := rows[min:max]
+
+		if len(s) < m.viewport.Height {
+			for len(s) < m.viewport.Height {
+				s = append(s, strings.Repeat(" ", m.viewport.Width))
+			}
+		}
+
+		*viewport = strings.Join(s, newline)
+		done <- true
+	}(&viewport) // this kind of does what viewport already does but at least now it's a controlled batch
+
+	<- done
+
 	close(done) // close
 
-	m.viewport.SetContent(content)
-
-	return fmt.Sprintf("%s\n%s\n%s", header, m.viewport.View(), footer) // render
+	return fmt.Sprintf("%s\n%s\n%s", header, viewport, footer) // render
 }

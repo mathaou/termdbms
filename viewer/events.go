@@ -44,15 +44,19 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) {
 	}
 }
 
+func toggleColumn(m *TuiModel) {
+	if m.expandColumn > -1 {
+		m.expandColumn = -1
+	} else {
+		m.expandColumn = m.GetColumn()
+	}
+}
+
 // handleKeyboardEvents does that
 func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	switch msg.String() {
 	case "c":
-		if m.expandColumn > -1 {
-			m.expandColumn = -1
-		} else {
-			m.expandColumn = m.GetColumn()
-		}
+		toggleColumn(m)
 		break
 	case "b":
 		m.borderToggle = !m.borderToggle
@@ -115,6 +119,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		break
 	case "esc": // exit full screen cell value view
 		m.renderSelection = false
+		m.expandColumn = -1
 		break
 	}
 }

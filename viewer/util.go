@@ -1,13 +1,16 @@
 package viewer
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/charmbracelet/lipgloss"
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -145,9 +148,11 @@ func displayTable(m *TuiModel) string {
 
 		for r, val := range columnValues {
 			base := m.GetBaseStyle()
+			// handle highlighting
 			if c == m.GetColumn() && r == m.GetRow() {
 				base.Foreground(lipgloss.Color(highlight))
 			}
+			// display text based on type
 			if str, ok := val.(string); ok {
 				max := float64(m.CellWidth())
 				minVal := int(math.Min(float64(len(str)), max))
@@ -163,7 +168,8 @@ func displayTable(m *TuiModel) string {
 			} else if t, ok := val.(time.Time); ok {
 				cw := m.CellWidth()
 				str := t.String()
-				s := str[:cw]
+				minVal := int(math.Min(float64(len(str)), float64(cw)))
+				s := str[:minVal]
 				if len(s) == cw {
 					s = s[:len(s)-3] + "..."
 				}
@@ -185,6 +191,7 @@ func displayTable(m *TuiModel) string {
 func displaySelection(m *TuiModel) string {
 	selectedColumn := m.GetHeaders()[m.GetColumn()]
 	col := m.GetSchemaData()[selectedColumn]
+	m.expandColumn = m.GetColumn()
 	row := m.GetRow()
 	if row >= len(col) {
 		return displayTable(m)
@@ -204,7 +211,8 @@ func displaySelection(m *TuiModel) string {
 	} else if t, ok := raw.(time.Time); ok {
 		cw := m.CellWidth()
 		str := t.String()
-		s := str[:cw]
+		minVal := int(math.Min(float64(len(str)), float64(cw)))
+		s := str[:minVal]
 		if len(s) == cw {
 			s = s[:len(s)-3] + "..."
 		}
@@ -250,4 +258,24 @@ func IsUrl(fp string) bool {
 	}
 
 	return false
+}
+
+func FileExists(name string) (bool, error) {
+	_, err := os.Stat(name)
+	if err == nil {
+		return false, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	}
+	return true, err
+}
+
+func SplitLines(s string) []string {
+	var lines []string
+	sc := bufio.NewScanner(strings.NewReader(s))
+	for sc.Scan() {
+		lines = append(lines, sc.Text())
+	}
+	return lines
 }
