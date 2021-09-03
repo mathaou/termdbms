@@ -85,7 +85,13 @@ func (m *TuiModel) GetSchemaData() map[string][]interface{} {
 }
 
 func TruncateIfApplicable(m *TuiModel, conv string) string {
-	max := float64(m.CellWidth())
+	max := func() float64 { // this might be kind of hacky, but it works
+		if m.renderSelection || m.expandColumn > -1 {
+			return float64(m.viewport.Width)
+		} else {
+			return float64(m.CellWidth())
+		}
+	}()
 	minVal := int(math.Min(float64(len(conv)), max))
 	s := conv[:minVal]
 	if int(max) == minVal { // truncate
