@@ -8,7 +8,6 @@ import (
 	_ "modernc.org/sqlite"
 	"os"
 	. "sqlite3-viewer/viewer"
-	"strings"
 	"sync"
 )
 
@@ -19,13 +18,10 @@ var (
 )
 
 const (
-	getTableNamesQuery = "SELECT name FROM sqlite_master WHERE type='table'"
 	debugPath          = "" // set to whatever hardcoded path for testing
 )
 
 func init() {
-	initialModel = GetNewModel()
-
 	// We keep one connection pool per database.
 	dbMutex = sync.Mutex{}
 	dbs = make(map[string]*sql.DB)
@@ -57,6 +53,7 @@ func main() {
 			fmt.Println("\t[M(scroll up) and N(scroll down)] to scroll manually")
 			fmt.Println("\t[Q or CTRL+C] to quit program")
 			fmt.Println("\t[B] to toggle borders!")
+			fmt.Println("\t[C] to expand column!")
 			fmt.Println("\t[ESC] to exit full screen view")
 		}
 
@@ -111,7 +108,8 @@ func main() {
 	defer db.Close()
 
 	// initializes the model used by bubbletea
-	setModel(c, db)
+	initialModel = GetNewModel()
+	initialModel.SetModel(c, db)
 
 	// creates the program
 	p := tea.NewProgram(initialModel,
@@ -122,75 +120,6 @@ func main() {
 		fmt.Printf("ERROR: Error initializing the sqlite viewer: %v", err)
 		os.Exit(1)
 	}
-}
-
-// setModel creates a model to be used by bubbletea using some golang wizardry
-func setModel(c *sql.Rows, db *sql.DB) {
-	var err error
-	indexMap := 0
-
-	// gets all the schema names of the database
-	rows, err := db.Query(getTableNamesQuery)
-	if err != nil {
-		fmt.Printf("%v", err)
-		os.Exit(1)
-	}
-	defer rows.Close()
-
-	// for each schema
-	for rows.Next() {
-		var schemaName string
-		rows.Scan(&schemaName)
-
-		// couldn't get prepared statements working and gave up because it was very simple
-		var statement strings.Builder
-		statement.WriteString("select * from ")
-		statement.WriteString(schemaName)
-
-		if c != nil {
-			c.Close()
-			c = nil
-		}
-		c, err = db.Query(statement.String())
-		if err != nil {
-			panic(err)
-		}
-
-		columnNames, _ := c.Columns()
-		columnValues := make(map[string][]interface{})
-
-		for c.Next() { // each row of the table
-			// golang wizardry
-			columns := make([]interface{}, len(columnNames))
-			columnPointers := make([]interface{}, len(columnNames))
-			// init interface array
-			for i, _ := range columns {
-				columnPointers[i] = &columns[i]
-			}
-
-			c.Scan(columnPointers...)
-
-			i := 0
-			for _, colName := range columnNames {
-				if colName == "" {
-					continue
-				}
-				val := columnPointers[i].(*interface{})
-				columnValues[colName] = append(columnValues[colName], *val)
-				i++
-			}
-		}
-
-		// onto the next schema
-		indexMap++
-		initialModel.Table[schemaName] = columnValues       // data for schema, organized by column
-		initialModel.TableHeaders[schemaName] = columnNames // headers for the schema, for later reference
-		// mapping between schema and an int ( since maps aren't deterministic), for later reference
-		initialModel.TableIndexMap[indexMap] = schemaName
-	}
-
-	// set the first table to be initial view
-	initialModel.TableSelection = 7
 }
 
 // getDatabaseForFile does what you think it does

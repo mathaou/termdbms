@@ -23,22 +23,25 @@ const (
 	highlight                 = "#0168B3" // change to whatever
 	headerForeground          = "#231F20"
 	headerBorderBackground    = "#AAAAAA"
-	maximumRendererCharacters = 1024 // this is kind of arbitrary
+	maximumRendererCharacters = math.MaxInt64 // this is kind of arbitrary
 )
 
 // TuiModel holds all the necessary state for this app to work the way I designed it to
 type TuiModel struct {
-	Table           map[string]interface{}
-	TableHeaders    map[string][]string
-	TableIndexMap   map[int]string
-	TableSelection  int
-	ready           bool
-	renderSelection bool
-	borderToggle    bool
-	expandColumn    int
-	viewport        viewport.Model
-	tableStyle      lipgloss.Style
-	mouseEvent      tea.MouseEvent
+	Table              map[string]interface{}
+	TableHeaders       map[string][]string
+	TableIndexMap      map[int]string
+	TableSelection     int
+	ready              bool
+	renderSelection    bool
+	selectionText      string
+	preScrollYOffset   int
+	preScrollYPosition int
+	borderToggle       bool
+	expandColumn       int
+	viewport           viewport.Model
+	tableStyle         lipgloss.Style
+	mouseEvent         tea.MouseEvent
 }
 
 // INIT UPDATE AND RENDER
@@ -86,8 +89,8 @@ func (m TuiModel) View() string {
 		return "\n  Initializing..."
 	}
 
-	// this ensures that all 4 parts can be worked on concurrently(ish)
-	done := make(chan bool, 4)
+	// this ensures that all 3 parts can be worked on concurrently(ish)
+	done := make(chan bool, 3)
 
 	var footer, header, content string
 
@@ -99,57 +102,59 @@ func (m TuiModel) View() string {
 
 	// header
 	go func(h *string) {
-		var builder []string
-		cw := m.CellWidth()
+		var (
+			builder []string
+		)
+
 		style := m.GetBaseStyle().
-			Width(cw).
+			Width(m.CellWidth()).
 			Foreground(lipgloss.Color(headerForeground)).
 			Background(lipgloss.Color(headerBorderBackground))
 		headers := m.GetHeaders()
-		for _, d := range headers { // write all headers
-			max := float64(cw)
-			minVal := int(math.Min(float64(len(d)), max))
-			s := d[:minVal]
-			if int(max) == minVal { // truncate
-				s = s[:len(s)-3] + "..."
+		for i, d := range headers { // write all headers
+			if m.expandColumn != -1 && i != m.expandColumn {
+				continue
 			}
-
 			builder = append(builder, style.
-				Render(s))
+				Render(TruncateIfApplicable(&m, d)))
 		}
 
-		// schema name
-		headerTop := lipgloss.NewStyle().
-			Underline(true).
-			Faint(true).
-			Render(fmt.Sprintf("%s (%d)",
-				m.GetSchemaName(), m.TableSelection))
-		// separator
-		headerBot := strings.Repeat(lipgloss.NewStyle().
-			Align(lipgloss.Center).
-			Faint(true).
-			Render("-"),
-			m.viewport.Width)
-		headerMid := strings.Join(builder, "")
-		headerMid = headerMid + strings.Repeat(" ", m.viewport.Width)
-		*h = fmt.Sprintf("%s\n%s\n%s",
-			headerTop,
-			headerMid,
-			headerBot)
+		{
+			// schema name
+			headerTop := lipgloss.NewStyle().
+				Underline(true).
+				Faint(true).
+				Render(fmt.Sprintf("%s (%d)",
+					m.GetSchemaName(), m.TableSelection))
+			// separator
+			headerBot := strings.Repeat(lipgloss.NewStyle().
+				Align(lipgloss.Center).
+				Faint(true).
+				Render("-"),
+				m.viewport.Width)
+			headerMid := strings.Join(builder, "")
+			headerMid = headerMid + strings.Repeat(" ", m.viewport.Width)
+			*h = fmt.Sprintf("%s\n%s\n%s",
+				headerTop,
+				headerMid,
+				headerBot)
+		}
 
 		done <- true
 	}(&header)
 
 	// footer (shows row/col for now)
 	go func(f *string) {
-		footerTop := "╭──────╮"
-		footerMid := fmt.Sprintf("┤ %d, %d ", m.GetRow(), m.GetColumn())
-		footerBot := "╰──────╯"
-		gapSize := m.viewport.Width - runewidth.StringWidth(footerMid)
-		footerTop = strings.Repeat(" ", gapSize) + footerTop
-		footerMid = strings.Repeat("─", gapSize) + footerMid
-		footerBot = strings.Repeat(" ", gapSize) + footerBot
-		*f = fmt.Sprintf("%s\n%s\n%s", footerTop, footerMid, footerBot)
+		{
+			footerTop := "╭──────╮"
+			footerMid := fmt.Sprintf("┤ %d, %d ", m.GetRow(), m.GetColumn())
+			footerBot := "╰──────╯"
+			gapSize := m.viewport.Width - runewidth.StringWidth(footerMid)
+			footerTop = strings.Repeat(" ", gapSize) + footerTop
+			footerMid = strings.Repeat("─", gapSize) + footerMid
+			footerBot = strings.Repeat(" ", gapSize) + footerBot
+			*f = fmt.Sprintf("%s\n%s\n%s", footerTop, footerMid, footerBot)
+		}
 
 		done <- true
 	}(&footer)
@@ -159,29 +164,9 @@ func (m TuiModel) View() string {
 	<-done
 	<-done
 
-	var viewport string
-	// TODO: improve this or rework this to improve performance on very large collections
-	// this could actually be doing basically nothing but w/e
-	go func(viewport *string) {
-		rows := SplitLines(content) // content can be very large by itself so creating a slice out of it kind of
-									// doubles the overhead...
-		min := m.viewport.YOffset
-		max := int(math.Min(float64(m.viewport.YOffset+m.viewport.Height), float64(len(rows))))
-		s := rows[min:max]
-
-		if len(s) < m.viewport.Height {
-			for len(s) < m.viewport.Height {
-				s = append(s, strings.Repeat(" ", m.viewport.Width))
-			}
-		}
-
-		*viewport = strings.Join(s, newline)
-		done <- true
-	}(&viewport) // this kind of does what viewport already does but at least now it's a controlled batch
-
-	<- done
-
 	close(done) // close
 
-	return fmt.Sprintf("%s\n%s\n%s", header, viewport, footer) // render
+	m.viewport.SetContent(content)
+
+	return fmt.Sprintf("%s\n%s\n%s", header, m.viewport.View(), footer) // render
 }
