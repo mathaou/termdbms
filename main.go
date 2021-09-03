@@ -20,7 +20,7 @@ var (
 
 const (
 	getTableNamesQuery = "SELECT name FROM sqlite_master WHERE type='table'"
-	debugPath          = "" // set to whatever hardcoded path for testing
+	debugPath          = "C:\\Users\\matth\\OneDrive\\Desktop\\chinook.db" // set to whatever hardcoded path for testing
 )
 
 func init() {
@@ -35,7 +35,7 @@ func main() {
 	var path string
 	var help bool
 
-	debug := false
+	debug := true
 	// if not debug, then this section parses and validates cmd line arguments
 	if !debug {
 		flag.Usage = func() {
@@ -106,6 +106,7 @@ func main() {
 	// creates the program
 	p := tea.NewProgram(initialModel,
 		tea.WithAltScreen(),
+		tea.WithoutCatchPanics(),
 		tea.WithMouseAllMotion())
 
 	if err := p.Start(); err != nil {

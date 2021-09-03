@@ -47,6 +47,13 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) {
 // handleKeyboardEvents does that
 func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	switch msg.String() {
+	case "c":
+		if m.expandColumn > -1 {
+			m.expandColumn = -1
+		} else {
+			m.expandColumn = m.GetColumn()
+		}
+		break
 	case "b":
 		m.borderToggle = !m.borderToggle
 		break

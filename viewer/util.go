@@ -18,6 +18,7 @@ func GetNewModel() TuiModel {
 		TableHeaders:    make(map[string][]string),
 		TableIndexMap:   make(map[int]string),
 		TableSelection:  0,
+		expandColumn:    -1,
 		ready:           false,
 		renderSelection: false,
 	}
@@ -25,6 +26,9 @@ func GetNewModel() TuiModel {
 
 // NumHeaders gets the number of columns for the current schema
 func (m *TuiModel) NumHeaders() int {
+	if m.expandColumn > -1 {
+		return 1
+	}
 	return len(m.GetHeaders())
 }
 
@@ -132,6 +136,10 @@ func displayTable(m *TuiModel) string {
 
 	// go through all columns
 	for c, columnName := range m.GetHeaders() {
+		if m.expandColumn > -1 && m.expandColumn != c {
+			continue
+		}
+
 		var rowBuilder []string
 		columnValues := columnNamesToInterfaceArray[columnName]
 
