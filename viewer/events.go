@@ -63,6 +63,11 @@ func toggleColumn(m *TuiModel) {
 // handleKeyboardEvents does that
 func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	switch msg.String() {
+	case "p":
+		if m.renderSelection {
+			WriteText(m, m.selectionText)
+		}
+		break
 	case "c":
 		toggleColumn(m)
 		break

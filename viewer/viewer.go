@@ -66,13 +66,15 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		break
 	case tea.KeyMsg:
 		// when fullscreen selection viewing is in session, don't allow UI manipulation other than quit or exit
+		s := msg.String()
 		if m.renderSelection &&
-			msg.String() != "esc" &&
-			msg.String() != "ctrl+c" &&
-			msg.String() != "q" {
+			s != "esc" &&
+			s != "ctrl+c" &&
+			s != "q" &&
+			s != "p"{
 			break
 		}
-		if msg.String() == "ctrl+c" || msg.String() == "q" {
+		if s == "ctrl+c" || s == "q" {
 			return m, tea.Quit
 		}
 

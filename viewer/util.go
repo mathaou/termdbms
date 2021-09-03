@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/charmbracelet/lipgloss"
 	"math"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -256,10 +257,9 @@ func displaySelection(m *TuiModel) string {
 		prettyPrint = base.Render("NULL")
 	}
 	if len(prettyPrint) > maximumRendererCharacters {
-		fileName := m.GetSchemaName() + "_" + selectedColumn + "_" + strconv.Itoa(row) + ".txt"
-		e := os.WriteFile(fileName, []byte(prettyPrint), 0777)
-		if e != nil {
-			return fmt.Sprintf("Error writing file %v", e)
+		fileName, err := WriteText(m, prettyPrint)
+		if err != nil {
+			fmt.Printf("ERROR: could not write file %d", fileName)
 		}
 		return fmt.Sprintf("Selected string exceeds maximum limit of %d characters. \n"+
 			"The file was written to your current working "+
@@ -267,6 +267,12 @@ func displaySelection(m *TuiModel) string {
 	}
 
 	return prettyPrint
+}
+
+func WriteText(m *TuiModel, text string) (string, error) {
+	fileName := m.GetSchemaName() + "_" + "renderView_" + fmt.Sprintf("%d", rand.Int()) + ".txt"
+	e := os.WriteFile(fileName, []byte(text), 0777)
+	return fileName, e
 }
 
 // assembleTable shows either the selection text or the table

@@ -32,4 +32,5 @@ Large databases (thousands of rows) make it slow sometimes. PRs open for optimiz
 	[Q or CTRL+C] to quit program
     [B] to toggle borders!
     [C] to expand column
+    [P] in selection mode to write cell to file
 	[ESC] to exit full screen view

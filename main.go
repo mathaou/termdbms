@@ -54,6 +54,7 @@ func main() {
 			fmt.Println("\t[Q or CTRL+C] to quit program")
 			fmt.Println("\t[B] to toggle borders!")
 			fmt.Println("\t[C] to expand column!")
+			fmt.Println("\t[P] in selection mode to write cell to file")
 			fmt.Println("\t[ESC] to exit full screen view")
 		}
 
