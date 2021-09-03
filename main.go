@@ -31,7 +31,7 @@ func main() {
 	var path string
 	var help bool
 
-	debug := true
+	debug := false
 	// if not debug, then this section parses and validates cmd line arguments
 	if !debug {
 		flag.Usage = func() {
