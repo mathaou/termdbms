@@ -179,7 +179,7 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 			columns := make([]interface{}, len(columnNames))
 			columnPointers := make([]interface{}, len(columnNames))
 			// init interface array
-			for i, _ := range columns {
+			for i := range columns {
 				columnPointers[i] = &columns[i]
 			}
 
