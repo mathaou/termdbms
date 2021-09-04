@@ -1,4 +1,4 @@
-module sqlite3-viewer
+module tuitty
 
 go 1.16
 

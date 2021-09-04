@@ -12,7 +12,7 @@ const (
 
 var (
 	inputBlacklist = []string{
-		"esc",
+		"alt+[",
 	}
 	reservedSequences = []string{
 		":q",
@@ -67,19 +67,18 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) {
 // handleKeyboardEvents does that
 func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	str := msg.String()
-	val := m.textInput.Value() + str
-	isReservedSequence := false
-	for _, v := range reservedSequences {
-		if val == v {
-			isReservedSequence = true
-		}
-	}
+	input := m.textInput.Value()
+	val := input + str
 
-	if m.editModeEnabled && !isReservedSequence {
+	if m.editModeEnabled {
+		if str == "esc" {
+			m.textInput.SetValue("")
+			return
+		}
+
 		m.textInput.SetCursorMode(textinput.CursorBlink)
 		for _, v := range inputBlacklist {
 			if str == v {
-				m.textInput.SetValue("")
 				return
 			}
 		}
@@ -87,9 +86,31 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		if str == "backspace" {
 			val := m.textInput.Value()
 			if len(val) > 0 {
-				m.textInput.SetValue(val[:len(val) - 1])
+				m.textInput.SetValue(val[:len(val)-1])
 			}
 		} else if str == "enter" { // writes your selection
+			if m.editModeEnabled && input == ":q" { // quit mod mode
+				m.editModeEnabled = false
+				m.textInput.SetValue("")
+				return
+			} else if m.editModeEnabled && input == ":s" {
+				m.undoStack = nil
+				m.undoStack = []map[string]interface{}{}
+				m.redoStack = nil
+				m.redoStack = []map[string]interface{}{}
+				m.editModeEnabled = false
+				m.textInput.SetValue("")
+				m.Serialize()
+				return
+			} else if m.editModeEnabled && input == ":!s" {
+				m.editModeEnabled = false
+				m.textInput.SetValue("")
+				m.SerializeOverwrite()
+				return
+			} else if m.editModeEnabled && input == ":h" {
+				//m.selectionText = m.he
+			}
+
 			if len(m.undoStack) >= 10 {
 				m.undoStack = m.undoStack[1:]
 			}
@@ -97,26 +118,14 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 			deepCopy := m.CopyMap()
 			m.undoStack = append(m.undoStack, deepCopy)
 			raw, _, _ := m.GetSelectedOption()
-			*raw = m.textInput.Value()
+			*raw = input
 			m.editModeEnabled = false
 			m.textInput.SetValue("")
 		} else {
-			m.textInput.SetValue(m.textInput.Value() + msg.String())
+			m.textInput.SetValue(val)
 		}
 
 		return
-	} else if m.editModeEnabled && val == ":q" { // quit mod mode
-		m.editModeEnabled = false
-		m.textInput.SetValue("")
-		return
-	} else if m.editModeEnabled && val == ":s" {
-		m.undoStack = nil
-		m.undoStack = []map[string]interface{}{}
-		m.redoStack = nil
-		m.redoStack = []map[string]interface{}{}
-		m.Serialize()
-	} else if m.editModeEnabled && val == ":!s" {
-		m.SerializeOverwrite()
 	}
 
 	switch str {
@@ -126,11 +135,11 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 			deepCopy := m.CopyMap()
 			m.undoStack = append(m.undoStack, deepCopy)
 			// handle redo
-			from := m.redoStack[len(m.redoStack) - 1]
+			from := m.redoStack[len(m.redoStack)-1]
 			to := m.Table
 			swapTableValues(m, &from, &to)
 
-			m.redoStack = m.redoStack[0:len(m.redoStack) - 1] // pop
+			m.redoStack = m.redoStack[0 : len(m.redoStack)-1] // pop
 		}
 		break
 	case "u": // undo
@@ -139,11 +148,11 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 			deepCopy := m.CopyMap()
 			m.redoStack = append(m.redoStack, deepCopy)
 			// handle undo
-			from := m.undoStack[len(m.undoStack) - 1]
+			from := m.undoStack[len(m.undoStack)-1]
 			to := m.Table
 			swapTableValues(m, &from, &to)
 
-			m.undoStack = m.undoStack[0:len(m.undoStack) - 1] // pop
+			m.undoStack = m.undoStack[0 : len(m.undoStack)-1] // pop
 		}
 		break
 	case ":":

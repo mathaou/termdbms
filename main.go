@@ -18,7 +18,7 @@ var (
 )
 
 const (
-	debugPath = "C:\\Users\\matth\\OneDrive\\Desktop\\chinook.db" // set to whatever hardcoded path for testing
+	debugPath = "/home/mfarstad/Desktop/chinook.db" // set to whatever hardcoded path for testing
 )
 
 func init() {
