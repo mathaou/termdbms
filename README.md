@@ -1,4 +1,7 @@
-# sqlite-tui:  A TUI for viewing sqlite databases, written in Go
+# tuitty:  A TUI for viewing and (eventually) editing databases, written in Go
+
+###### Database Support
+    SQLite
 
 ### made with modernc.org/sqlite, charmbracelet/bubbletea, and charmbracelet/lipgloss
 
