@@ -198,24 +198,30 @@ func displayTable(m *TuiModel) string {
 				base.Foreground(lipgloss.Color(highlight))
 			}
 			// display text based on type
-			if str, ok := val.(string); ok {
-				rowBuilder = append(rowBuilder, base.Render(TruncateIfApplicable(m, str)))
-			} else if i, ok := val.(int64); ok {
-				rowBuilder = append(rowBuilder, base.Render(fmt.Sprintf("%d", i)))
-			} else if i, ok := val.(float64); ok {
-				rowBuilder = append(rowBuilder, base.Render(fmt.Sprintf("%.2f", i)))
-			} else if t, ok := val.(time.Time); ok {
-				cw := m.CellWidth()
-				str := t.String()
-				minVal := int(math.Min(float64(len(str)), float64(cw)))
-				s := str[:minVal]
-				if len(s) == cw {
-					s = s[:len(s)-3] + "..."
+			row := func() string {
+				switch v := val.(type) {
+				case string:
+					return TruncateIfApplicable(m, v)
+				case int64:
+					return fmt.Sprintf("%d", v)
+				case float64:
+					return fmt.Sprintf("%.2f", v)
+				case time.Time:
+					cw := m.CellWidth()
+					str := v.String()
+					minVal := int(math.Min(float64(len(str)), float64(cw)))
+					s := str[:minVal]
+					if len(s) == cw {
+						s = s[:len(s)-3] + "..."
+					}
+					return s
+				case nil:
+					return "NULL"
+				default:
+					return ""
 				}
-				rowBuilder = append(rowBuilder, base.Render(s))
-			} else if val == nil {
-				rowBuilder = append(rowBuilder, base.Render("NULL"))
-			}
+			}()
+			rowBuilder = append(rowBuilder, base.Render(row))
 		}
 
 		// get a list of columns
@@ -246,16 +252,20 @@ func displaySelection(m *TuiModel) string {
 	var prettyPrint string
 	raw := col[row]
 
-	if conv, ok := raw.(int64); ok {
-		prettyPrint = strconv.Itoa(int(conv))
-	} else if i, ok := raw.(float64); ok {
-		prettyPrint = base.Render(fmt.Sprintf("%.2f", i))
-	} else if t, ok := raw.(time.Time); ok {
-		str := t.String()
-		prettyPrint = base.Render(TruncateIfApplicable(m, str))
-	} else if raw == nil {
-		prettyPrint = base.Render("NULL")
-	}
+	prettyPrint = base.Render(func() string {
+		switch v := raw.(type) {
+		case int64:
+			return strconv.Itoa(int(v))
+		case float64:
+			return fmt.Sprintf("%.2f", v)
+		case time.Time:
+			return TruncateIfApplicable(m, v.String())
+		case nil:
+			return "NULL"
+		default:
+			return ""
+		}
+	}())
 	if len(prettyPrint) > maximumRendererCharacters {
 		fileName, err := WriteText(m, prettyPrint)
 		if err != nil {
