@@ -36,7 +36,7 @@
 
     GOOS=darwin GOARCH=amd64 go build
 
-#### NOTE: Mouse controls don't work for remote sessions like serial or SSH. 
+#### NOTE: Mouse controls don't work for remote sessions like serial or SSH.
 xterm-256 color mode must be enabled in the settings in order for color highlighting to function in these environments as well.
 MobaXterm, GitBash, and the most recent Windows terminal should all support these on Windows. Linux supports out of the box.
 
@@ -45,7 +45,7 @@ Large databases (tens of thousands of rows) make it slow sometimes. PRs open for
 Headers wig out sometimes in column expansion or selection view.
 
 ##### Help:
-	-p	database path (absolute)
+	-p	database path
 	-h	prints this message
 ##### Controls:
 ###### MOUSE
