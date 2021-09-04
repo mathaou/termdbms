@@ -147,16 +147,19 @@ func (m TuiModel) View() string {
 
 	// footer (shows row/col for now)
 	go func(f *string) {
-		{
-			footerTop := "╭──────╮"
-			footerMid := fmt.Sprintf("┤ %d, %d ", m.GetRow(), m.GetColumn())
-			footerBot := "╰──────╯"
-			gapSize := m.viewport.Width - runewidth.StringWidth(footerMid)
-			footerTop = strings.Repeat(" ", gapSize) + footerTop
-			footerMid = strings.Repeat("─", gapSize) + footerMid
-			footerBot = strings.Repeat(" ", gapSize) + footerBot
-			*f = fmt.Sprintf("%s\n%s\n%s", footerTop, footerMid, footerBot)
+		b := lipgloss.RoundedBorder()
+		b.Left = "┤"
+		style := lipgloss.NewStyle().
+			BorderStyle(b).
+			Padding(0, 1)
+
+		info := style.Render(fmt.Sprintf("%d, %d", m.GetRow(), m.GetColumn()))
+		gapSize := m.viewport.Width - lipgloss.Width(info)
+		if gapSize < 0 {
+			gapSize = 0
 		}
+		line := strings.Repeat("─", gapSize)
+		*f = lipgloss.JoinHorizontal(lipgloss.Center, line, info)
 
 		done <- true
 	}(&footer)
