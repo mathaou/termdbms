@@ -46,7 +46,7 @@ Headers wig out sometimes in column expansion or selection view.
 	[UP/K and DOWN/J] to navigate schemas
 	[M(scroll up) and N(scroll down)] to scroll manually
 	[Q or CTRL+C] to quit program
-        [B] to toggle borders!
-        [C] to expand column
-        [P] in selection mode to write cell to file
+    [B] to toggle borders!
+    [C] to expand column
+    [P] in selection mode to write cell to file
 	[ESC] to exit full screen view
