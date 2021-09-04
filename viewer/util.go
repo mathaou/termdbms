@@ -259,7 +259,7 @@ func displaySelection(m *TuiModel) string {
 	if len(prettyPrint) > maximumRendererCharacters {
 		fileName, err := WriteText(m, prettyPrint)
 		if err != nil {
-			fmt.Printf("ERROR: could not write file %d", fileName)
+			fmt.Printf("ERROR: could not write file %s", fileName)
 		}
 		return fmt.Sprintf("Selected string exceeds maximum limit of %d characters. \n"+
 			"The file was written to your current working "+
