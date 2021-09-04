@@ -49,7 +49,8 @@ type TuiModel struct {
 	mouseEvent         tea.MouseEvent
 	textInput          textinput.Model
 	databaseReference  *sql.DB
-	actionStack        []map[string]interface{}
+	undoStack          []map[string]interface{}
+	redoStack          []map[string]interface{}
 	err                error
 }
 

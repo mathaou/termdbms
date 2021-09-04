@@ -28,6 +28,27 @@ func selectOption(m *TuiModel) {
 	}
 }
 
+func swapTableValues(m *TuiModel, from, to *map[string]interface{}) {
+	for k, v := range *from {
+		if copyValues, ok := v.(map[string][]interface{}); ok {
+			columnNames := m.TableHeaders[k]
+			columnValues := make(map[string][]interface{})
+			// golang wizardry
+			columns := make([]interface{}, len(columnNames))
+
+			for i, _ := range columns {
+				columns[i] = copyValues[columnNames[i]][0]
+			}
+
+			for i, colName := range columnNames {
+				columnValues[colName] = columns[i].([]interface{})
+			}
+
+			(*to)[k] = columnValues // data for schema, organized by column
+		}
+	}
+}
+
 func toggleColumn(m *TuiModel) {
 	if m.expandColumn > -1 {
 		m.expandColumn = -1

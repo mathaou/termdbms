@@ -14,6 +14,11 @@ var (
 	inputBlacklist = []string{
 		"esc",
 	}
+	reservedSequences = []string{
+		":q",
+		":s",
+		":!s",
+	}
 )
 
 // handleMouseEvents does that
@@ -63,7 +68,14 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) {
 func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	str := msg.String()
 	val := m.textInput.Value() + str
-	if m.editModeEnabled && val != ":q" {
+	isReservedSequence := false
+	for _, v := range reservedSequences {
+		if val == v {
+			isReservedSequence = true
+		}
+	}
+
+	if m.editModeEnabled && !isReservedSequence {
 		m.textInput.SetCursorMode(textinput.CursorBlink)
 		for _, v := range inputBlacklist {
 			if str == v {
@@ -78,12 +90,12 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 				m.textInput.SetValue(val[:len(val) - 1])
 			}
 		} else if str == "enter" { // writes your selection
-			if len(m.actionStack) >= 10 {
-				m.actionStack = m.actionStack[1:]
+			if len(m.undoStack) >= 10 {
+				m.undoStack = m.undoStack[1:]
 			}
 
 			deepCopy := m.CopyMap()
-			m.actionStack = append(m.actionStack, deepCopy)
+			m.undoStack = append(m.undoStack, deepCopy)
 			raw, _, _ := m.GetSelectedOption()
 			*raw = m.textInput.Value()
 			m.editModeEnabled = false
@@ -98,37 +110,40 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		m.textInput.SetValue("")
 		return
 	} else if m.editModeEnabled && val == ":s" {
+		m.undoStack = nil
+		m.undoStack = []map[string]interface{}{}
+		m.redoStack = nil
+		m.redoStack = []map[string]interface{}{}
 		m.Serialize()
 	} else if m.editModeEnabled && val == ":!s" {
 		m.SerializeOverwrite()
 	}
 
 	switch str {
-	case "u": // undo
-		if len(m.actionStack) > 0 { // TODO: make this a from/to swap as a function
-			from := m.actionStack[len(m.actionStack) - 1]
+	case "r": // redo
+		if len(m.redoStack) > 0 {
+			// handle undo
+			deepCopy := m.CopyMap()
+			m.undoStack = append(m.undoStack, deepCopy)
+			// handle redo
+			from := m.redoStack[len(m.redoStack) - 1]
 			to := m.Table
+			swapTableValues(m, &from, &to)
 
-			for k, v := range from {
-				if copyValues, ok := v.(map[string][]interface{}); ok {
-					columnNames := m.TableHeaders[k]
-					columnValues := make(map[string][]interface{})
-					// golang wizardry
-					columns := make([]interface{}, len(columnNames))
+			m.redoStack = m.redoStack[0:len(m.redoStack) - 1] // pop
+		}
+		break
+	case "u": // undo
+		if len(m.undoStack) > 0 {
+			// handle redo
+			deepCopy := m.CopyMap()
+			m.redoStack = append(m.redoStack, deepCopy)
+			// handle undo
+			from := m.undoStack[len(m.undoStack) - 1]
+			to := m.Table
+			swapTableValues(m, &from, &to)
 
-					for i, _ := range columns {
-						columns[i] = copyValues[columnNames[i]][0]
-					}
-
-					for i, colName := range columnNames {
-						columnValues[colName] = columns[i].([]interface{})
-					}
-
-					to[k] = columnValues // data for schema, organized by column
-				}
-			}
-
-			m.actionStack = m.actionStack[0:len(m.actionStack) - 1]
+			m.undoStack = m.undoStack[0:len(m.undoStack) - 1] // pop
 		}
 		break
 	case ":":

@@ -18,7 +18,7 @@ var (
 )
 
 const (
-	debugPath = "/home/mfarstad/Desktop/megastore.db" // set to whatever hardcoded path for testing
+	debugPath = "C:\\Users\\matth\\OneDrive\\Desktop\\chinook.db" // set to whatever hardcoded path for testing
 )
 
 func init() {
