@@ -13,6 +13,14 @@
 
 ![Mouse Control](https://i.imgur.com/O8DT9q5.gif)
 
+#### Roadmap
+
+ - Run SQL queries and display results
+ - Edit cells on the fly
+ - Add/remove rows/columns/cells
+ - Rename anything
+ - MySQL support (more eventually)
+ - Serialization
 
 #### Building (generally a go build should be enough, architecture included for completeness)
 
