@@ -1,4 +1,4 @@
-# tuitty:  A TUI for viewing and (eventually) editing databases, written in Go
+# termdbms:  A TUI for viewing and (eventually) editing databases, written in Go
 
 ###### Database Support
     SQLite
