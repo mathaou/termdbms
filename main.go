@@ -40,7 +40,7 @@ func main() {
 				"these environments as well.\n" +
 				"MobaXterm, GitBash, and the most recent Windows terminal should all support these on Windows. Linux supports out of the box.")
 			fmt.Println("Help:")
-			fmt.Println("\t-p\tdatabase path (absolute)")
+			fmt.Println("\t-p\tdatabase path")
 			fmt.Println("\t-h\tprints this message")
 			fmt.Println("Controls:")
 			fmt.Println("MOUSE")
