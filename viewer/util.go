@@ -6,113 +6,39 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
-	"math"
+	"hash/fnv"
+	"io"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
 
-// GetNewModel returns a TuiModel struct with some fields set
-func GetNewModel() TuiModel {
-	return TuiModel{
-		Table:           make(map[string]interface{}),
-		TableHeaders:    make(map[string][]string),
-		TableIndexMap:   make(map[int]string),
-		TableSelection:  0,
-		expandColumn:    -1,
-		ready:           false,
-		renderSelection: false,
-		editModeEnabled: false,
-		textInput: textinput.NewModel(),
-	}
-}
-
-// NumHeaders gets the number of columns for the current schema
-func (m *TuiModel) NumHeaders() int {
-	if m.expandColumn > -1  || len(m.GetHeaders()) == 0{
-		return 1
-	}
-	return len(m.GetHeaders())
-}
-
-// CellWidth gets the current cell width for schema
-func (m *TuiModel) CellWidth() int {
-	return m.viewport.Width / m.NumHeaders()
-}
-
-// GetBaseStyle returns a new style that is used everywhere
-func (m *TuiModel) GetBaseStyle() lipgloss.Style {
-	s := lipgloss.NewStyle().
-		Width(m.CellWidth()).
-		MaxWidth(m.CellWidth()).
-		Align(lipgloss.Left).
-		Padding(0).
-		Margin(0)
-
-	if m.borderToggle {
-		s = s.BorderRight(true).
-			BorderLeft(true).
-			BorderStyle(lipgloss.RoundedBorder())
-	}
-
-	return s
-}
-
-// GetColumn gets the column the mouse cursor is in
-func (m *TuiModel) GetColumn() int {
-	return m.mouseEvent.X / m.CellWidth()
-}
-
-// GetRow does math to get a valid row that's helpful
-func (m *TuiModel) GetRow() int {
-	return int(math.Max(float64(m.mouseEvent.Y-headerHeight), 0)) + m.viewport.YOffset
-}
-
-// GetSchemaName gets the current schema name
-func (m *TuiModel) GetSchemaName() string {
-	return m.TableIndexMap[m.TableSelection]
-}
-
-// GetHeaders does just that for the current schema
-func (m *TuiModel) GetHeaders() []string {
-	return m.TableHeaders[m.GetSchemaName()]
-}
-
-// GetSchemaData is a helper function to get the data of the current schema
-func (m *TuiModel) GetSchemaData() map[string][]interface{} {
-	n := m.GetSchemaName()
-	return m.Table[n].(map[string][]interface{})
-}
-
-func (m *TuiModel) GetSelectedOption() (*interface{}, int, []interface{}) {
-	m.preScrollYOffset = m.viewport.YOffset
-	m.preScrollYPosition = m.mouseEvent.Y
-	selectedColumn := m.GetHeaders()[m.GetColumn()]
-	col := m.GetSchemaData()[selectedColumn]
-	row := m.GetRow()
-	if row >= len(col) {
-		return nil, row, col
-	}
-	return &col[row], row, col
-}
+const (
+	HiddenTmpDirectoryName = ".termdbms"
+)
 
 // non interface helper methods
 
-func TruncateIfApplicable(m *TuiModel, conv string) string {
-	max := func() float64 { // this might be kind of hacky, but it works
-		if m.renderSelection || m.expandColumn > -1 {
-			return float64(m.viewport.Width)
-		} else {
-			return float64(m.CellWidth())
-		}
-	}()
-	minVal := int(math.Min(float64(len(conv)), max))
-	s := conv[:minVal]
-	if int(max) == minVal { // truncate
-		s = s[:len(s)-3] + "..."
+func TruncateIfApplicable(m *TuiModel, conv string) (s string) {
+	max := 0
+	viewportWidth := m.viewport.Width
+	cellWidth := m.CellWidth()
+	if m.renderSelection || m.expandColumn > -1 {
+		max = viewportWidth
+	} else {
+		max = cellWidth
+	}
+	textWidth := lipgloss.Width(conv)
+	minVal := Min(textWidth, max)
+
+	if max == minVal && textWidth >= max { // truncate
+		s = conv[:minVal]
+		s = s[:lipgloss.Width(s)-3] + "..."
+	} else {
+		s = conv
 	}
 
 	return s
@@ -179,7 +105,7 @@ func SplitLines(s string) []string {
 }
 
 func (m *TuiModel) CopyMap() (to map[string]interface{}) {
-	from := m.Table
+	from := m.Table.Data
 	to = map[string]interface{}{}
 
 	for k, v := range from {
@@ -225,11 +151,7 @@ func getScrollDownMaxForSelection(m *TuiModel) int {
 		lines := SplitLines(conv)
 		max = len(lines)
 	} else {
-		for _, v := range m.GetSchemaData() {
-			if len(v) > max {
-				max = len(v)
-			}
-		}
+		return len(m.GetSchemaData()[m.TableHeaders[m.GetSchemaName()][0]])
 	}
 
 	return max
@@ -246,4 +168,79 @@ func formatJson(str string) (string, error) {
 		return "", err
 	}
 	return formattedJson.String(), nil
+}
+
+func Exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func Hash(s string) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return h.Sum32()
+}
+
+func CopyFile(src string) (string, int64, error) {
+	sourceFileStat, err := os.Stat(src)
+	dst := fmt.Sprintf(".%d",
+		Hash(fmt.Sprintf("%s%d",
+			src,
+			rand.Uint64())))
+	if err != nil {
+		return "", 0, err
+	}
+
+	if !sourceFileStat.Mode().IsRegular() {
+		return "", 0, fmt.Errorf("%s is not a regular file", src)
+	}
+
+	source, err := os.Open(src)
+	if err != nil {
+		return "", 0, err
+	}
+	defer source.Close()
+
+	destination, err := os.CreateTemp(HiddenTmpDirectoryName, dst)
+	if err != nil {
+		return "", 0, err
+	}
+	defer destination.Close()
+	nBytes, err := io.Copy(destination, source)
+	info, _ := destination.Stat()
+	path, _ := filepath.Abs(
+		fmt.Sprintf("%s/%s",
+			HiddenTmpDirectoryName,
+			info.Name())) // platform agnostic
+	return path, nBytes, err
+}
+
+func Min(a, b int) int {
+	if a < b {
+		return a
+	}
+
+	return b
+}
+
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+
+	return b
+}
+
+func Abs(a int) int {
+	if a < 0 {
+		return a * -1
+	}
+
+	return a
 }

@@ -1,2 +1,3 @@
 *.sh
 .idea/*
+.termdbms

@@ -7,8 +7,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	_ "modernc.org/sqlite"
 	"os"
-	. "sqlite3-viewer/viewer"
 	"sync"
+	. "tuitty/viewer"
 )
 
 var (
@@ -31,7 +31,7 @@ func main() {
 	var path string
 	var help bool
 
-	debug := true
+	debug := debugPath != ""
 	// if not debug, then this section parses and validates cmd line arguments
 	if !debug {
 		flag.Usage = func() {
@@ -105,11 +105,23 @@ func main() {
 		fmt.Printf("ERROR: Database file could not be found at %s\n", path)
 		os.Exit(1)
 	}
-	db := getDatabaseForFile(path)
+
+	if valid, _ := Exists(HiddenTmpDirectoryName); valid {
+		os.RemoveAll(HiddenTmpDirectoryName)
+	}
+
+	os.Mkdir(HiddenTmpDirectoryName, 0777)
+
+	// steps
+	// make a copy of the database file, load this
+	dst, _, _ := CopyFile(path) // salt your hash, kids
+	// keep a track of the original file name
+	db := GetDatabaseForFile(dst)
 	defer db.Close()
 
 	// initializes the model used by bubbletea
-	initialModel = GetNewModel()
+	initialModel = GetNewModel(dst)
+	initialModel.InitialFileName = path
 	initialModel.SetModel(c, db)
 
 	// creates the program
@@ -123,8 +135,8 @@ func main() {
 	}
 }
 
-// getDatabaseForFile does what you think it does
-func getDatabaseForFile(database string) *sql.DB {
+// GetDatabaseForFile does what you think it does
+func GetDatabaseForFile(database string) *sql.DB {
 	dbMutex.Lock()
 	defer dbMutex.Unlock()
 	if db, ok := dbs[database]; ok {

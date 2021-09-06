@@ -4,6 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 const (
@@ -13,11 +14,6 @@ const (
 var (
 	inputBlacklist = []string{
 		"alt+[",
-	}
-	reservedSequences = []string{
-		":q",
-		":s",
-		":!s",
 	}
 )
 
@@ -46,7 +42,7 @@ func handleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
 }
 
 // handleWidowSizeEvents does that
-func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) {
+func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 	verticalMargins := headerHeight + footerHeight
 
 	if !m.ready {
@@ -54,7 +50,7 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) {
 			Width:  msg.Width,
 			Height: msg.Height - verticalMargins}
 		m.viewport.YPosition = headerHeight
-		m.viewport.HighPerformanceRendering = false // couldn't get this working
+		m.viewport.HighPerformanceRendering = true
 		m.ready = true
 		m.tableStyle = m.GetBaseStyle()
 		m.mouseEvent.Y = headerHeight
@@ -62,6 +58,12 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) {
 		m.viewport.Width = msg.Width
 		m.viewport.Height = msg.Height - verticalMargins
 	}
+
+	if m.viewport.HighPerformanceRendering {
+		return viewport.Sync(m.viewport)
+	}
+
+	return nil
 }
 
 // handleKeyboardEvents does that
@@ -70,7 +72,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	input := m.textInput.Value()
 	val := input + str
 
-	if m.editModeEnabled {
+	if m.editModeEnabled { // handle edit mode
 		if str == "esc" {
 			m.textInput.SetValue("")
 			return
@@ -85,38 +87,41 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 
 		if str == "backspace" {
 			val := m.textInput.Value()
-			if len(val) > 0 {
-				m.textInput.SetValue(val[:len(val)-1])
+			if lipgloss.Width(val) > 0 {
+				m.textInput.SetValue(val[:lipgloss.Width(val)-1])
 			}
 		} else if str == "enter" { // writes your selection
 			if m.editModeEnabled && input == ":q" { // quit mod mode
 				m.editModeEnabled = false
 				m.textInput.SetValue("")
 				return
-			} else if m.editModeEnabled && input == ":s" {
-				m.undoStack = nil
-				m.undoStack = []map[string]interface{}{}
-				m.redoStack = nil
-				m.redoStack = []map[string]interface{}{}
+			} else if m.editModeEnabled && input == ":s" { // saves copy, default filename + :s _____ will save with that filename in cwd
 				m.editModeEnabled = false
 				m.textInput.SetValue("")
 				m.Serialize()
 				return
-			} else if m.editModeEnabled && input == ":!s" {
+			} else if m.editModeEnabled && input == ":!s" { // overwrites original
 				m.editModeEnabled = false
 				m.textInput.SetValue("")
 				m.SerializeOverwrite()
 				return
 			} else if m.editModeEnabled && input == ":h" {
-				//m.selectionText = m.he
+				m.selectionText = GetHelpText()
+				m.editModeEnabled = false
+				m.renderSelection = true
+				m.helpDisplay = true
+				return
 			}
 
-			if len(m.undoStack) >= 10 {
-				m.undoStack = m.undoStack[1:]
+			if len(m.UndoStack) >= 10 {
+				m.UndoStack = m.UndoStack[1:]
 			}
 
 			deepCopy := m.CopyMap()
-			m.undoStack = append(m.undoStack, deepCopy)
+			m.UndoStack = append(m.UndoStack, TableState{
+				Filename: "test", // placeholder for now while testing database copy
+				Data:     deepCopy,
+			})
 			raw, _, _ := m.GetSelectedOption()
 			*raw = input
 			m.editModeEnabled = false
@@ -130,38 +135,45 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 
 	switch str {
 	case "r": // redo
-		if len(m.redoStack) > 0 {
+		if len(m.RedoStack) > 0 {
 			// handle undo
 			deepCopy := m.CopyMap()
-			m.undoStack = append(m.undoStack, deepCopy)
+			m.UndoStack = append(m.UndoStack, TableState{
+				Filename: "test",
+				Data:     deepCopy,
+			})
 			// handle redo
-			from := m.redoStack[len(m.redoStack)-1]
+			from := m.RedoStack[len(m.RedoStack)-1]
 			to := m.Table
 			swapTableValues(m, &from, &to)
 
-			m.redoStack = m.redoStack[0 : len(m.redoStack)-1] // pop
+			m.RedoStack = m.RedoStack[0 : len(m.RedoStack)-1] // pop
 		}
 		break
 	case "u": // undo
-		if len(m.undoStack) > 0 {
+		if len(m.UndoStack) > 0 {
 			// handle redo
 			deepCopy := m.CopyMap()
-			m.redoStack = append(m.redoStack, deepCopy)
+			m.RedoStack = append(m.RedoStack, TableState{
+				Filename: "test",
+				Data:     deepCopy,
+			})
 			// handle undo
-			from := m.undoStack[len(m.undoStack)-1]
+			from := m.UndoStack[len(m.UndoStack)-1]
 			to := m.Table
 			swapTableValues(m, &from, &to)
 
-			m.undoStack = m.undoStack[0 : len(m.undoStack)-1] // pop
+			m.UndoStack = m.UndoStack[0 : len(m.UndoStack)-1] // pop
 		}
 		break
 	case ":":
+		m.editModeEnabled = true
 		raw, _, col := m.GetSelectedOption()
 		if m.GetRow() >= len(col) {
+			m.editModeEnabled = false
 			break
 		}
 
-		m.editModeEnabled = true
 		m.textInput.SetValue(GetStringRepresentationOfInterface(m, *raw))
 		break
 	case "p":
@@ -185,6 +197,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		// fix spacing and whatnot
 		m.tableStyle = m.tableStyle.Width(m.CellWidth())
 		m.viewport.YOffset = 0
+		m.scrollXOffset = 0
 		break
 	case "down", "j": // toggle previous schema - 1
 		if m.TableSelection == 1 {
@@ -196,6 +209,17 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		// fix spacing and whatnot
 		m.tableStyle = m.tableStyle.Width(m.CellWidth())
 		m.viewport.YOffset = 0
+		m.scrollXOffset = 0
+		break
+	case "right":
+		if len(m.GetHeaders()) >= 12 {
+			m.scrollXOffset++
+		}
+		break
+	case "left":
+		if m.scrollXOffset > 0 {
+			m.scrollXOffset--
+		}
 		break
 	case "s": // manual keyboard control for row ++ (some weird behavior exists with the header height...)
 		max := len(m.GetSchemaData()[m.GetHeaders()[m.GetColumn()]])
@@ -235,6 +259,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		break
 	case "esc": // exit full screen cell value view
 		m.renderSelection = false
+		m.helpDisplay = false
+		m.selectionText = ""
 		m.expandColumn = -1
 		m.mouseEvent.Y = m.preScrollYPosition
 		m.viewport.YOffset = m.preScrollYOffset

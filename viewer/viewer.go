@@ -27,30 +27,38 @@ const (
 	highlight                 = "#0168B3" // change to whatever
 	headerForeground          = "#231F20"
 	headerBorderBackground    = "#AAAAAA"
-	maximumRendererCharacters = math.MaxInt64 // this is kind of arbitrary
+	maximumRendererCharacters = math.MaxInt32
 )
+
+type TableState struct {
+	Filename string // as of right now we just dump the sql file to a random hidden string temporarily
+	Data     map[string]interface{}
+}
 
 // TuiModel holds all the necessary state for this app to work the way I designed it to
 type TuiModel struct {
-	Table              map[string]interface{}
+	Table              TableState          // all non destructive changes are TableStates getting passed around
 	TableHeaders       map[string][]string // keeps track of which schema has which headers
-	TableIndexMap      map[int]string // keeps the schemas in order
+	TableIndexMap      map[int]string      // keeps the schemas in order
 	TableSelection     int
+	InitialFileName    string // used if saving destructively
 	ready              bool
 	renderSelection    bool
+	helpDisplay        bool
 	editModeEnabled    bool
 	selectionText      string
 	preScrollYOffset   int
 	preScrollYPosition int
+	scrollXOffset      int
 	borderToggle       bool
 	expandColumn       int
 	viewport           viewport.Model
 	tableStyle         lipgloss.Style
 	mouseEvent         tea.MouseEvent
 	textInput          textinput.Model
+	UndoStack          []TableState
+	RedoStack          []TableState
 	databaseReference  *sql.DB
-	undoStack          []map[string]interface{}
-	redoStack          []map[string]interface{}
 	err                error
 }
 
@@ -72,14 +80,18 @@ func (m TuiModel) Init() tea.Cmd {
 
 // Update is where all commands and whatnot get processed
 func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
 
 	switch msg := message.(type) {
 	case tea.MouseMsg:
 		handleMouseEvents(&m, &msg)
 		break
 	case tea.WindowSizeMsg:
-		handleWidowSizeEvents(&m, &msg)
+		event := handleWidowSizeEvents(&m, &msg)
+		cmds = append(cmds, event)
 		break
 	case tea.KeyMsg:
 		// when fullscreen selection viewing is in session, don't allow UI manipulation other than quit or exit
@@ -98,6 +110,7 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		handleKeyboardEvents(&m, &msg)
+
 		break
 	case error:
 		m.err = msg
@@ -106,7 +119,11 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 	m.viewport, cmd = m.viewport.Update(message)
 
-	return m, cmd
+	if m.viewport.HighPerformanceRendering {
+		cmds = append(cmds, cmd)
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 // View is where all rendering happens
@@ -136,7 +153,12 @@ func (m TuiModel) View() string {
 			Width(m.CellWidth()).
 			Foreground(lipgloss.Color(headerForeground)).
 			Background(lipgloss.Color(headerBorderBackground))
-		headers := m.GetHeaders()
+		headers := m.TableHeaders[m.GetSchemaName()]
+		headersLen := len(headers)
+
+		if headersLen> 12 {
+			headers = headers[m.scrollXOffset : 12+m.scrollXOffset]
+		}
 		for i, d := range headers { // write all headers
 			if m.expandColumn != -1 && i != m.expandColumn {
 				continue
@@ -164,7 +186,7 @@ func (m TuiModel) View() string {
 				outOfRange := m.viewport.Width < viewLen
 
 				if outOfRange {
-					min = int(math.Abs(float64(m.viewport.Width - viewLen)))
+					min = Abs(m.viewport.Width - viewLen)
 					max = m.viewport.Width + min
 				} else {
 					min = 0
@@ -173,8 +195,11 @@ func (m TuiModel) View() string {
 
 				headerTop = view[min:max]
 			} else {
-				headerTop = fmt.Sprintf("%s (%d)",
-					m.GetSchemaName(), m.TableSelection)
+				headerTop = fmt.Sprintf("%s (%d/%d) - %d record(s)",
+					m.GetSchemaName(),
+					m.TableSelection,
+					len(m.TableHeaders), // look at how headers get rendered to get accurate record number
+					len(m.GetSchemaData()[headers[0]])) // this will need to be refactored when filters get added
 				headerTop = headerTop + strings.Repeat(" ", m.viewport.Width-len(headerTop))
 			}
 
@@ -199,7 +224,7 @@ func (m TuiModel) View() string {
 	go func(f *string) {
 		{
 			footerTop := "╭──────╮"
-			footerMid := fmt.Sprintf("┤ %d, %d ", m.GetRow(), m.GetColumn())
+			footerMid := fmt.Sprintf("┤ %d, %d ", m.GetRow() + m.viewport.YOffset, m.GetColumn() + m.scrollXOffset)
 			footerBot := "╰──────╯"
 			gapSize := m.viewport.Width - runewidth.StringWidth(footerMid)
 			footerTop = strings.Repeat(" ", gapSize) + footerTop
@@ -218,9 +243,11 @@ func (m TuiModel) View() string {
 
 	close(done) // close
 
-	m.viewport.SetContent(content)
+	if m.helpDisplay {
+		return content
+	}
 
-	return fmt.Sprintf("%s\n%s\n%s", header, m.viewport.View(), footer) // render
+	return fmt.Sprintf("%s\n%s\n%s", header, content, footer) // render
 }
 
 // SetModel creates a model to be used by bubbletea using some golang wizardry
@@ -277,7 +304,7 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 
 		// onto the next schema
 		indexMap++
-		m.Table[schemaName] = columnValues       // data for schema, organized by column
+		m.Table.Data[schemaName] = columnValues  // data for schema, organized by column
 		m.TableHeaders[schemaName] = columnNames // headers for the schema, for later reference
 		// mapping between schema and an int ( since maps aren't deterministic), for later reference
 		m.TableIndexMap[indexMap] = schemaName
@@ -286,5 +313,5 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 	m.databaseReference = db // hold onto that for serialization
 
 	// set the first table to be initial view
-	m.TableSelection = 1
+	m.TableSelection = 3
 }
