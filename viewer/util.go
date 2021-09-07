@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -25,11 +26,12 @@ func TruncateIfApplicable(m *TuiModel, conv string) (s string) {
 	max := 0
 	viewportWidth := m.viewport.Width
 	cellWidth := m.CellWidth()
-	if m.renderSelection || m.expandColumn > -1 {
+	if m.renderSelection || m.expandColumn > -1 || m.helpDisplay {
 		max = viewportWidth
 	} else {
 		max = cellWidth
 	}
+
 	textWidth := lipgloss.Width(conv)
 	minVal := Min(textWidth, max)
 
@@ -43,32 +45,46 @@ func TruncateIfApplicable(m *TuiModel, conv string) (s string) {
 	return s
 }
 
-func GetStringRepresentationOfInterfaceRaw(val interface{}) string {
+func GetInterfaceFromString(str string, original *interface{}) interface{} {
+	switch (*original).(type) {
+	case bool:
+		bVal, _ := strconv.ParseBool(str)
+		return bVal
+		break
+	case int64:
+	case int32:
+		iVal, _ := strconv.ParseInt(str, 10, 64)
+		return iVal
+		break
+	case float64:
+	case float32:
+		fVal, _ := strconv.ParseFloat(str, 64)
+		return fVal
+		break
+	case time.Time:
+		t := (*original).(time.Time)
+		return t // TODO figure out how to handle things like time and date
+	case string:
+		return str
+	}
+
+	return nil
+}
+
+func GetStringRepresentationOfInterface(val interface{}) string {
 	if str, ok := val.(string); ok {
 		return str
-	} else if i, ok := val.(int64); ok {
+	} else if i, ok := val.(int64); ok { // these default to int64 so not sure how this would affect 32 bit systems TODO
+		return fmt.Sprintf("%d", i)
+	} else if i, ok := val.(int32); ok { // these default to int32 so not sure how this would affect 32 bit systems TODO
 		return fmt.Sprintf("%d", i)
 	} else if i, ok := val.(float64); ok {
 		return fmt.Sprintf("%.2f", i)
-	} else if t, ok := val.(time.Time); ok {
-		return t.String()
-	} else if val == nil {
-		return "NULL"
-	}
-
-	return ""
-}
-
-func GetStringRepresentationOfInterface(m *TuiModel, val interface{}) string {
-	if str, ok := val.(string); ok {
-		return TruncateIfApplicable(m, str)
-	} else if i, ok := val.(int64); ok {
-		return fmt.Sprintf("%d", i)
-	} else if i, ok := val.(float64); ok {
+	} else if i, ok := val.(float32); ok {
 		return fmt.Sprintf("%.2f", i)
 	} else if t, ok := val.(time.Time); ok {
 		str := t.String()
-		return TruncateIfApplicable(m, str)
+		return str
 	} else if val == nil {
 		return "NULL"
 	}

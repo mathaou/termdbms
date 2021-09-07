@@ -6,7 +6,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mattn/go-runewidth"
 	"math"
 	"os"
 	"runtime"
@@ -17,9 +16,10 @@ var (
 	width          int
 	height         int
 	headerHeight   = 3
-	footerHeight   = 3
+	footerHeight   = 1
 	newline        string
 	maxInputLength int
+	headerStyle    lipgloss.Style
 )
 
 const (
@@ -72,8 +72,11 @@ func (m TuiModel) Init() tea.Cmd {
 	}
 
 	maxInputLength = m.viewport.Width
-	m.textInput.CharLimit = maxInputLength
+	m.textInput.CharLimit = -1
 	m.textInput.Width = maxInputLength
+
+	headerStyle = lipgloss.NewStyle().
+		Faint(true)
 
 	return nil
 }
@@ -111,7 +114,9 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		handleKeyboardEvents(&m, &msg)
-		m.SetViewSlices()
+		if !m.editModeEnabled {
+			m.SetViewSlices()
+		}
 
 		break
 	case error:
@@ -119,7 +124,7 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.viewport, cmd = m.viewport.Update(message)
+	m.viewport, _ = m.viewport.Update(message)
 
 	if m.viewport.HighPerformanceRendering {
 		cmds = append(cmds, cmd)
@@ -168,8 +173,6 @@ func (m TuiModel) View() string {
 
 		{
 			// schema name
-			headerStyle := lipgloss.NewStyle().
-				Faint(true)
 			var headerTop string
 
 			if m.editModeEnabled {
@@ -191,14 +194,19 @@ func (m TuiModel) View() string {
 				}
 
 				headerTop = view[min:max]
+				headerTop += strings.Repeat(" ", m.viewport.Width-len(headerTop))
 			} else {
-				headerTop = fmt.Sprintf("%s (%d/%d) - %d record(s)",
+				headerTop = fmt.Sprintf("%s (%d/%d) - %d record(s) + %d column(s)",
 					m.GetSchemaName(),
 					m.TableSelection,
 					len(m.TableHeaders),                // look at how headers get rendered to get accurate record number
-					len(m.GetSchemaData()[headers[0]])) // this will need to be refactored when filters get added
-				headerTop = headerTop + strings.Repeat(" ", m.viewport.Width-len(headerTop))
+					len(m.GetColumnData()),
+					len(m.GetHeaders())) // this will need to be refactored when filters get added
+
+				headerTop += strings.Repeat(" ", m.viewport.Width-len(headerTop))
 			}
+
+			//strings.Repeat(" ", m.viewport.Width-len(headerTop))
 
 			// separator
 			headerBot := strings.Repeat(lipgloss.NewStyle().
@@ -220,14 +228,11 @@ func (m TuiModel) View() string {
 	// footer (shows row/col for now)
 	go func(f *string) {
 		{
-			footerTop := "╭──────╮"
-			footerMid := fmt.Sprintf("┤ %d, %d ", m.GetRow()+m.viewport.YOffset, m.GetColumn()+m.scrollXOffset)
-			footerBot := "╰──────╯"
-			gapSize := m.viewport.Width - runewidth.StringWidth(footerMid)
-			footerTop = strings.Repeat(" ", gapSize) + footerTop
-			footerMid = strings.Repeat("─", gapSize) + footerMid
-			footerBot = strings.Repeat(" ", gapSize) + footerBot
-			*f = fmt.Sprintf("%s\n%s\n%s", footerTop, footerMid, footerBot)
+			footer := fmt.Sprintf(" %d, %d ", m.GetRow()+m.viewport.YOffset, m.GetColumn()+m.scrollXOffset)
+			undoRedoInfo := fmt.Sprintf("undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
+			gapSize := m.viewport.Width - lipgloss.Width(footer) - lipgloss.Width(undoRedoInfo) - 2
+			footer = headerStyle.Render(undoRedoInfo) + "├" + strings.Repeat("─", gapSize) + "┤" + headerStyle.Render(footer)
+			*f = footer
 		}
 
 		done <- true
@@ -244,7 +249,12 @@ func (m TuiModel) View() string {
 		return content
 	}
 
-	return fmt.Sprintf("%s\n%s\n%s", header, content, footer) // render
+	if content == "" { // race condition TODO
+		m.SetViewSlices()
+		return m.View()
+	} else {
+		return fmt.Sprintf("%s\n%s\n%s", header, content, footer) // render
+	}
 }
 
 // SetModel creates a model to be used by bubbletea using some golang wizardry
@@ -308,5 +318,5 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 	}
 
 	// set the first table to be initial view
-	m.TableSelection = 3
+	m.TableSelection = 1
 }

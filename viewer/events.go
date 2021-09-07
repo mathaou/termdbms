@@ -14,27 +14,38 @@ const (
 var (
 	inputBlacklist = []string{
 		"alt+[",
+		"left",
+		"right",
+		"up",
+		"down",
+		"tab",
+		"end",
+		"home",
+		"pgdown",
+		"pgup",
 	}
 )
 
 // handleMouseEvents does that
 func handleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
-	if m.editModeEnabled {
-		return
-	}
-
 	switch msg.Type {
 	case tea.MouseWheelDown:
-		scrollDown(m)
+		if !m.editModeEnabled {
+			scrollDown(m)
+		}
 		break
 	case tea.MouseWheelUp:
-		scrollUp(m)
+		if !m.editModeEnabled {
+			scrollUp(m)
+		}
 		break
 	case tea.MouseLeft:
-		selectOption(m)
+		if !m.editModeEnabled {
+			selectOption(m)
+		}
 		break
 	default:
-		if !m.renderSelection {
+		if !m.renderSelection && !m.editModeEnabled && !m.helpDisplay {
 			m.mouseEvent = tea.MouseEvent(*msg)
 		}
 		break
@@ -101,18 +112,16 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 			} else if m.editModeEnabled && input == ":s" { // saves copy, default filename + :s _____ will save with that filename in cwd
 				m.editModeEnabled = false
 				m.textInput.SetValue("")
-				m.Serialize()
+				newFileName := m.Serialize()
+				m.DisplayMessage(fmt.Sprintf("Wrote copy of database to filepath %s", newFileName))
 				return
-			} else if m.editModeEnabled && input == ":!s" { // overwrites original
+			} else if m.editModeEnabled && input == ":s!" { // overwrites original
 				m.editModeEnabled = false
 				m.textInput.SetValue("")
 				m.SerializeOverwrite()
 				return
 			} else if m.editModeEnabled && input == ":h" {
-				m.selectionText = GetHelpText()
-				m.editModeEnabled = false
-				m.renderSelection = true
-				m.helpDisplay = true
+				m.DisplayMessage(GetHelpText())
 				return
 			}
 
@@ -138,19 +147,19 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 			deepState := TableState{
 				Database: &SQLite{
 					FileName:          m.Table.Database.GetFileName(),
-					DatabaseReference: nil,
+					db: nil,
 				}, // placeholder for now while testing database copy
 				Data: deepCopy,
 			}
 			m.UndoStack = append(m.UndoStack, deepState)
 			dst, _, _ := CopyFile(m.Table.Database.GetFileName())
 			m.Table.Database.CloseDatabaseReference()
-			m.Table.Database.SetDatabaseReference(GetDatabaseForFile(dst))
+			m.Table.Database.SetDatabaseReference(dst)
+			original, _, _ := m.GetSelectedOption()
 			m.ProcessSqlQueryForDatabaseType(&Update{
-				Update: *raw,
+				Update: GetInterfaceFromString(input, original),
 			})
 
-			m.SerializeOverwrite() // for testing
 			m.editModeEnabled = false
 			m.textInput.SetValue("")
 			*raw = input
@@ -165,15 +174,21 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	case "r": // redo
 		if len(m.RedoStack) > 0 { // do this after you get undo working, basically just the same thing reversed
 			// handle undo
-			//deepCopy := m.CopyMap()
-			//m.UndoStack = append(m.UndoStack, TableState{
-			//	Filename: "test",
-			//	Data:     deepCopy,
-			//})
+			deepCopy := m.CopyMap()
+			// THE GLOBALIST TAKEOVER
+			deepState := TableState{
+				Database: &SQLite{
+					FileName:          m.Table.Database.GetFileName(),
+					db: nil,
+				}, // placeholder for now while testing database copy
+				Data: deepCopy,
+			}
+			m.UndoStack = append(m.UndoStack, deepState)
 			// handle redo
 			from := m.RedoStack[len(m.RedoStack)-1]
 			to := m.Table
 			swapTableValues(m, &from, &to)
+			m.Table.Database.SetDatabaseReference(from.Database.GetFileName())
 
 			m.RedoStack = m.RedoStack[0 : len(m.RedoStack)-1] // pop
 		}
@@ -181,15 +196,21 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	case "u": // undo
 		if len(m.UndoStack) > 0 {
 			// handle redo
-			//deepCopy := m.CopyMap()
-			//m.RedoStack = append(m.RedoStack, TableState{
-			//	Filename: "test",
-			//	Data:     deepCopy,
-			//})
+			deepCopy := m.CopyMap()
+			// THE GLOBALIST TAKEOVER
+			deepState := TableState{
+				Database: &SQLite{
+					FileName:          m.Table.Database.GetFileName(),
+					db: nil,
+				}, // placeholder for now while testing database copy
+				Data: deepCopy,
+			}
+			m.RedoStack = append(m.RedoStack, deepState)
 			// handle undo
 			from := m.UndoStack[len(m.UndoStack)-1]
 			to := m.Table
 			swapTableValues(m, &from, &to)
+			m.Table.Database.SetDatabaseReference(from.Database.GetFileName())
 
 			m.UndoStack = m.UndoStack[0 : len(m.UndoStack)-1] // pop
 		}
@@ -202,7 +223,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 			break
 		}
 
-		m.textInput.SetValue(GetStringRepresentationOfInterface(m, *raw))
+		str := GetStringRepresentationOfInterface(*raw)
+		m.textInput.SetValue(str)
 		break
 	case "p":
 		if m.renderSelection {
@@ -239,12 +261,12 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		m.viewport.YOffset = 0
 		m.scrollXOffset = 0
 		break
-	case "right":
-		if len(m.GetHeaders()) >= 12 {
+	case "right", "l":
+		if len(m.GetHeaders()) > maxHeaders && m.scrollXOffset < len(m.GetHeaders()) - 1 - maxHeaders {
 			m.scrollXOffset++
 		}
 		break
-	case "left":
+	case "left", "h":
 		if m.scrollXOffset > 0 {
 			m.scrollXOffset--
 		}
@@ -255,7 +277,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		if m.mouseEvent.Y-headerHeight < max-1 {
 			m.mouseEvent.Y++
 		} else {
-			m.mouseEvent.Y = max
+			m.mouseEvent.Y = max - 1 + headerHeight
 		}
 
 		break

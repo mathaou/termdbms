@@ -4,16 +4,24 @@ import (
 	"fmt"
 	"github.com/charmbracelet/lipgloss"
 	"strconv"
+	"strings"
 	"time"
 )
 
 // selectOption does just that
 func selectOption(m *TuiModel) {
-	m.renderSelection = true
-	raw, row, col := m.GetSelectedOption()
-	l := len(col)
+	if m.renderSelection || m.helpDisplay {
+		return
+	}
 
-	if row < l && l > 0 {
+	m.renderSelection = true
+	raw, _, col := m.GetSelectedOption()
+	l := len(col)
+	row := m.viewport.YOffset + m.mouseEvent.Y - headerHeight
+
+	if row <= l && l > 0 &&
+		m.mouseEvent.Y >= headerHeight &&
+		m.mouseEvent.Y < m.viewport.Height + headerHeight {
 		if conv, ok := (*raw).(string); ok {
 			if format, err := formatJson(conv); err == nil {
 				m.selectionText = format
@@ -63,13 +71,15 @@ func toggleColumn(m *TuiModel) {
 func scrollDown(m *TuiModel) {
 	max := getScrollDownMaxForSelection(m)
 
-	if m.viewport.YOffset < max-1 {
+	if m.viewport.YOffset < max-m.viewport.Height {
 		m.viewport.YOffset++
 		m.mouseEvent.Y = Min(m.mouseEvent.Y, m.viewport.YOffset)
 	}
 
-	m.preScrollYPosition = m.mouseEvent.Y
-	m.preScrollYOffset = m.viewport.YOffset
+	if !m.renderSelection {
+		m.preScrollYPosition = m.mouseEvent.Y
+		m.preScrollYOffset = m.viewport.YOffset
+	}
 }
 
 // scrollUp is a simple function to move the viewport up
@@ -81,8 +91,10 @@ func scrollUp(m *TuiModel) {
 		m.mouseEvent.Y = headerHeight
 	}
 
-	m.preScrollYPosition = m.mouseEvent.Y
-	m.preScrollYOffset = m.viewport.YOffset
+	if !m.renderSelection {
+		m.preScrollYPosition = m.mouseEvent.Y
+		m.preScrollYOffset = m.viewport.YOffset
+	}
 }
 
 // TABLE STUFF
@@ -111,8 +123,8 @@ func displayTable(m *TuiModel) string {
 				base.Foreground(lipgloss.Color(highlight))
 			}
 			// display text based on type
-			s := GetStringRepresentationOfInterface(m, val)
-			rowBuilder = append(rowBuilder, base.Render(s))
+			s := GetStringRepresentationOfInterface(val)
+			rowBuilder = append(rowBuilder, base.Render(TruncateIfApplicable(m, s)))
 		}
 
 		for len(rowBuilder) < m.viewport.Height {
@@ -139,7 +151,12 @@ func displaySelection(m *TuiModel) string {
 	base := m.GetBaseStyle()
 
 	if m.selectionText != "" { // this is basically just if its a string follow these rules
+		_, err := formatJson(m.selectionText)
 		rows := SplitLines(m.selectionText)
+		if err == nil && strings.Contains(m.selectionText, "{"){
+			rows = rows[m.viewport.YOffset:m.viewport.Height + m.viewport.YOffset]
+		}
+
 		for len(rows) < m.viewport.Height {
 			rows = append(rows, "")
 		}

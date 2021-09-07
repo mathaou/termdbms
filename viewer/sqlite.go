@@ -1,21 +1,39 @@
 package viewer
 
-import "database/sql"
+import (
+	"database/sql"
+	"log"
+)
 
 type SQLite struct {
 	FileName          string
-	DatabaseReference *sql.DB
+	db *sql.DB
 }
 
 func (s *SQLite) Update(q *Update) {
-	query := q.GenerateQuery()
-	tx, _ := s.DatabaseReference.Begin()
-	//if err != nil {
-	//	panic(err)
-	//}
-	//defer tx.Rollback()
-	result, _ := tx.Exec(query)
-	println(result.RowsAffected())
+	protoQuery, columnOrder := q.GenerateQuery(s)
+	values := make([]interface{}, len(columnOrder))
+	for i, v := range columnOrder {
+		if i == 0 {
+			values[i] = q.Update
+		} else {
+			values[i] = q.Values[v]
+		}
+	}
+	tx, err := s.GetDatabaseReference().Begin()
+	if err != nil {
+		log.Fatal(err)
+	}
+	stmt, err := tx.Prepare(protoQuery)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt.Close()
+	stmt.Exec(values...)
+	err = tx.Commit()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (s *SQLite) GetFileName() string {
@@ -23,14 +41,16 @@ func (s *SQLite) GetFileName() string {
 }
 
 func (s *SQLite) GetDatabaseReference() *sql.DB {
-	return s.DatabaseReference
+	return s.db
 }
 
 func (s *SQLite) CloseDatabaseReference() {
-	s.DatabaseReference.Close()
-	s.DatabaseReference = nil
+	s.GetDatabaseReference().Close()
+	s.db = nil
 }
 
-func (s *SQLite) SetDatabaseReference(db *sql.DB) {
-	s.DatabaseReference = db
+func (s *SQLite) SetDatabaseReference(dbPath string) {
+	db := GetDatabaseForFile(dbPath)
+	s.FileName = dbPath
+	s.db = db
 }

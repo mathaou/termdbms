@@ -6,13 +6,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+var maxHeaders int
+
 // GetNewModel returns a TuiModel struct with some fields set
 func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 	return TuiModel{
 		Table: TableState{
 			Database: &SQLite{
-				FileName:          baseFileName,
-				DatabaseReference: db,
+				FileName: baseFileName,
+				db:       db,
 			},
 			Data: make(map[string]interface{}),
 		},
@@ -36,8 +38,10 @@ func (m *TuiModel) NumHeaders() int {
 		return 1
 	}
 
-	if l > 12 {
-		return 12
+	maxHeaders = m.viewport.Width / 20 // seemed like a good number
+
+	if l > maxHeaders {
+		return maxHeaders
 	}
 
 	return l
@@ -45,7 +49,7 @@ func (m *TuiModel) NumHeaders() int {
 
 // CellWidth gets the current cell width for schema
 func (m *TuiModel) CellWidth() int {
-	return m.viewport.Width / m.NumHeaders()
+	return m.viewport.Width / m.NumHeaders() + 1
 }
 
 // GetBaseStyle returns a new style that is used everywhere
@@ -99,14 +103,17 @@ func (m *TuiModel) SetViewSlices() {
 	headers := m.TableHeaders[m.GetSchemaName()]
 	headersLen := len(headers)
 
-	if headersLen > 12 {
-		headers = headers[m.scrollXOffset : (m.viewport.Width/20)+m.scrollXOffset]
+	if headersLen > maxHeaders {
+		headers = headers[m.scrollXOffset : maxHeaders+m.scrollXOffset - 1]
 	}
 
 	for _, columnName := range headers {
 		interfaceValues := m.GetSchemaData()[columnName]
 		if len(interfaceValues) >= m.viewport.Height {
 			min := Min(m.viewport.YOffset, len(interfaceValues)-m.viewport.Height)
+			if min < 0 || m.viewport.Height+min < 0 { // sometimes negative due to race condition... TODO
+				continue
+			}
 			m.DataSlices[columnName] = interfaceValues[min : m.viewport.Height+min]
 		} else {
 			m.DataSlices[columnName] = interfaceValues
@@ -150,4 +157,11 @@ func (m *TuiModel) GetSelectedOption() (*interface{}, int, []interface{}) {
 		return nil, row, col
 	}
 	return &col[row], row, col
+}
+
+func (m *TuiModel) DisplayMessage(msg string) {
+	m.selectionText = msg
+	m.editModeEnabled = false
+	m.renderSelection = true
+	m.helpDisplay = true
 }

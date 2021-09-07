@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	_ "modernc.org/sqlite"
 	"os"
+	"strings"
 	. "termdbms/viewer"
 )
 
@@ -15,7 +16,7 @@ var (
 )
 
 const (
-	debugPath = "/home/mfarstad/Desktop/chinook.db" // set to whatever hardcoded path for testing
+	debugPath = "/home/mfarstad/Desktop/ts.sqlite" // set to whatever hardcoded path for testing
 )
 
 func main() {
@@ -26,27 +27,11 @@ func main() {
 	// if not debug, then this section parses and validates cmd line arguments
 	if !debug {
 		flag.Usage = func() {
-			fmt.Println("NOTE: Mouse controls don't work for remote sessions like serial or SSH. " +
-				"\nxterm-256 color mode must be enabled in the settings in order for color highlighting to function in " +
-				"these environments as well.\n" +
-				"MobaXterm, GitBash, and the most recent Windows terminal should all support these on Windows. Linux supports out of the box.")
-			fmt.Println("Help:")
-			fmt.Println("\t-p\tdatabase path (absolute)")
-			fmt.Println("\t-h\tprints this message")
-			fmt.Println("Controls:")
-			fmt.Println("MOUSE")
-			fmt.Println("\tScroll up + down to navigate table")
-			fmt.Println("\tMove cursor to select cells for full screen viewing")
-			fmt.Println("KEYBOARD")
-			fmt.Println("\t[WASD] to move around cells")
-			fmt.Println("\t[ENTER] to select selected cell for full screen view")
-			fmt.Println("\t[UP/K and DOWN/J] to navigate schemas")
-			fmt.Println("\t[M(scroll up) and N(scroll down)] to scroll manually")
-			fmt.Println("\t[Q or CTRL+C] to quit program")
-			fmt.Println("\t[B] to toggle borders!")
-			fmt.Println("\t[C] to expand column!")
-			fmt.Println("\t[P] in selection mode to write cell to file")
-			fmt.Println("\t[ESC] to exit full screen view")
+			help := GetHelpText()
+			lines := strings.Split(help, "\n")
+			for _, v := range lines {
+				println(v)
+			}
 		}
 
 		argLength := len(os.Args[1:])

@@ -11,7 +11,7 @@ var (
 )
 
 type Query interface {
-	GenerateQuery() string
+	GenerateQuery(db Database) (string, []string)
 }
 
 type Database interface {
@@ -19,7 +19,7 @@ type Database interface {
 	GetFileName() string
 	GetDatabaseReference() *sql.DB
 	CloseDatabaseReference()
-	SetDatabaseReference(db *sql.DB)
+	SetDatabaseReference(dbPath string)
 }
 
 func init() {
