@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
@@ -31,7 +30,7 @@ const (
 )
 
 type TableState struct {
-	Filename string // as of right now we just dump the sql file to a random hidden string temporarily
+	Database Database
 	Data     map[string]interface{}
 }
 
@@ -39,7 +38,9 @@ type TableState struct {
 type TuiModel struct {
 	Table              TableState          // all non destructive changes are TableStates getting passed around
 	TableHeaders       map[string][]string // keeps track of which schema has which headers
-	TableIndexMap      map[int]string      // keeps the schemas in order
+	TableHeadersSlice  []string
+	DataSlices         map[string][]interface{}
+	TableIndexMap      map[int]string // keeps the schemas in order
 	TableSelection     int
 	InitialFileName    string // used if saving destructively
 	ready              bool
@@ -52,13 +53,12 @@ type TuiModel struct {
 	scrollXOffset      int
 	borderToggle       bool
 	expandColumn       int
-	viewport           viewport.Model
+	viewport           ViewportModel
 	tableStyle         lipgloss.Style
 	mouseEvent         tea.MouseEvent
 	textInput          textinput.Model
 	UndoStack          []TableState
 	RedoStack          []TableState
-	databaseReference  *sql.DB
 	err                error
 }
 
@@ -88,6 +88,7 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := message.(type) {
 	case tea.MouseMsg:
 		handleMouseEvents(&m, &msg)
+		m.SetViewSlices()
 		break
 	case tea.WindowSizeMsg:
 		event := handleWidowSizeEvents(&m, &msg)
@@ -110,6 +111,7 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		handleKeyboardEvents(&m, &msg)
+		m.SetViewSlices()
 
 		break
 	case error:
@@ -153,12 +155,7 @@ func (m TuiModel) View() string {
 			Width(m.CellWidth()).
 			Foreground(lipgloss.Color(headerForeground)).
 			Background(lipgloss.Color(headerBorderBackground))
-		headers := m.TableHeaders[m.GetSchemaName()]
-		headersLen := len(headers)
-
-		if headersLen> 12 {
-			headers = headers[m.scrollXOffset : 12+m.scrollXOffset]
-		}
+		headers := m.TableHeadersSlice
 		for i, d := range headers { // write all headers
 			if m.expandColumn != -1 && i != m.expandColumn {
 				continue
@@ -198,7 +195,7 @@ func (m TuiModel) View() string {
 				headerTop = fmt.Sprintf("%s (%d/%d) - %d record(s)",
 					m.GetSchemaName(),
 					m.TableSelection,
-					len(m.TableHeaders), // look at how headers get rendered to get accurate record number
+					len(m.TableHeaders),                // look at how headers get rendered to get accurate record number
 					len(m.GetSchemaData()[headers[0]])) // this will need to be refactored when filters get added
 				headerTop = headerTop + strings.Repeat(" ", m.viewport.Width-len(headerTop))
 			}
@@ -224,7 +221,7 @@ func (m TuiModel) View() string {
 	go func(f *string) {
 		{
 			footerTop := "╭──────╮"
-			footerMid := fmt.Sprintf("┤ %d, %d ", m.GetRow() + m.viewport.YOffset, m.GetColumn() + m.scrollXOffset)
+			footerMid := fmt.Sprintf("┤ %d, %d ", m.GetRow()+m.viewport.YOffset, m.GetColumn()+m.scrollXOffset)
 			footerBot := "╰──────╯"
 			gapSize := m.viewport.Width - runewidth.StringWidth(footerMid)
 			footerTop = strings.Repeat(" ", gapSize) + footerTop
@@ -309,8 +306,6 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 		// mapping between schema and an int ( since maps aren't deterministic), for later reference
 		m.TableIndexMap[indexMap] = schemaName
 	}
-
-	m.databaseReference = db // hold onto that for serialization
 
 	// set the first table to be initial view
 	m.TableSelection = 3

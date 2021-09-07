@@ -1,10 +1,10 @@
 package viewer
 
 import (
+	"fmt"
 	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"os"
 )
 
 const (
@@ -46,7 +46,7 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 	verticalMargins := headerHeight + footerHeight
 
 	if !m.ready {
-		m.viewport = viewport.Model{
+		m.viewport = ViewportModel{
 			Width:  msg.Width,
 			Height: msg.Height - verticalMargins}
 		m.viewport.YPosition = headerHeight
@@ -54,13 +54,15 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 		m.ready = true
 		m.tableStyle = m.GetBaseStyle()
 		m.mouseEvent.Y = headerHeight
+
+		m.SetViewSlices()
 	} else {
 		m.viewport.Width = msg.Width
 		m.viewport.Height = msg.Height - verticalMargins
 	}
 
 	if m.viewport.HighPerformanceRendering {
-		return viewport.Sync(m.viewport)
+		return Sync(m.viewport)
 	}
 
 	return nil
@@ -87,8 +89,9 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 
 		if str == "backspace" {
 			val := m.textInput.Value()
-			if lipgloss.Width(val) > 0 {
-				m.textInput.SetValue(val[:lipgloss.Width(val)-1])
+			// TODO: lipgloss.Width couldn't be used here because the width was sometimes 2, when I just need to go back one
+			if len(val) > 0 {
+				m.textInput.SetValue(val[:len(val)-1])
 			}
 		} else if str == "enter" { // writes your selection
 			if m.editModeEnabled && input == ":q" { // quit mod mode
@@ -113,19 +116,44 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 				return
 			}
 
+			raw, _, _ := m.GetSelectedOption()
+			if *raw == input {
+				// no update
+				return
+			}
+
+			// plain jane cell update
 			if len(m.UndoStack) >= 10 {
-				m.UndoStack = m.UndoStack[1:]
+				ref := m.UndoStack[len(m.UndoStack)-1]
+				err := os.Remove(ref.Database.GetFileName())
+				if err != nil {
+					fmt.Printf("%v", err)
+					os.Exit(1)
+				}
+				m.UndoStack = m.UndoStack[1:] // need some more complicated logic to handle dereferencing
 			}
 
 			deepCopy := m.CopyMap()
-			m.UndoStack = append(m.UndoStack, TableState{
-				Filename: "test", // placeholder for now while testing database copy
-				Data:     deepCopy,
+			// THE GLOBALIST TAKEOVER
+			deepState := TableState{
+				Database: &SQLite{
+					FileName:          m.Table.Database.GetFileName(),
+					DatabaseReference: nil,
+				}, // placeholder for now while testing database copy
+				Data: deepCopy,
+			}
+			m.UndoStack = append(m.UndoStack, deepState)
+			dst, _, _ := CopyFile(m.Table.Database.GetFileName())
+			m.Table.Database.CloseDatabaseReference()
+			m.Table.Database.SetDatabaseReference(GetDatabaseForFile(dst))
+			m.ProcessSqlQueryForDatabaseType(&Update{
+				Update: *raw,
 			})
-			raw, _, _ := m.GetSelectedOption()
-			*raw = input
+
+			m.SerializeOverwrite() // for testing
 			m.editModeEnabled = false
 			m.textInput.SetValue("")
+			*raw = input
 		} else {
 			m.textInput.SetValue(val)
 		}
@@ -135,13 +163,13 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 
 	switch str {
 	case "r": // redo
-		if len(m.RedoStack) > 0 {
+		if len(m.RedoStack) > 0 { // do this after you get undo working, basically just the same thing reversed
 			// handle undo
-			deepCopy := m.CopyMap()
-			m.UndoStack = append(m.UndoStack, TableState{
-				Filename: "test",
-				Data:     deepCopy,
-			})
+			//deepCopy := m.CopyMap()
+			//m.UndoStack = append(m.UndoStack, TableState{
+			//	Filename: "test",
+			//	Data:     deepCopy,
+			//})
 			// handle redo
 			from := m.RedoStack[len(m.RedoStack)-1]
 			to := m.Table
@@ -153,11 +181,11 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	case "u": // undo
 		if len(m.UndoStack) > 0 {
 			// handle redo
-			deepCopy := m.CopyMap()
-			m.RedoStack = append(m.RedoStack, TableState{
-				Filename: "test",
-				Data:     deepCopy,
-			})
+			//deepCopy := m.CopyMap()
+			//m.RedoStack = append(m.RedoStack, TableState{
+			//	Filename: "test",
+			//	Data:     deepCopy,
+			//})
 			// handle undo
 			from := m.UndoStack[len(m.UndoStack)-1]
 			to := m.Table
@@ -257,7 +285,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	case "n": // scroll down manually
 		scrollDown(m)
 		break
-	case "esc": // exit full screen cell value view
+	case "esc": // exit full screen cell value view, also brings back to top
 		m.renderSelection = false
 		m.helpDisplay = false
 		m.selectionText = ""

@@ -7,25 +7,16 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	_ "modernc.org/sqlite"
 	"os"
-	"sync"
-	. "tuitty/viewer"
+	. "termdbms/viewer"
 )
 
 var (
 	initialModel TuiModel
-	dbMutex      sync.Mutex
-	dbs          map[string]*sql.DB
 )
 
 const (
 	debugPath = "/home/mfarstad/Desktop/chinook.db" // set to whatever hardcoded path for testing
 )
-
-func init() {
-	// We keep one connection pool per database.
-	dbMutex = sync.Mutex{}
-	dbs = make(map[string]*sql.DB)
-}
 
 func main() {
 	var path string
@@ -114,13 +105,17 @@ func main() {
 
 	// steps
 	// make a copy of the database file, load this
-	dst, _, _ := CopyFile(path) // salt your hash, kids
+	dst, _, _ := CopyFile(path)
 	// keep a track of the original file name
 	db := GetDatabaseForFile(dst)
-	defer db.Close()
+	defer func() {
+		if db == nil {
+			db.Close()
+		}
+	}()
 
 	// initializes the model used by bubbletea
-	initialModel = GetNewModel(dst)
+	initialModel = GetNewModel(dst, db)
 	initialModel.InitialFileName = path
 	initialModel.SetModel(c, db)
 
@@ -133,19 +128,4 @@ func main() {
 		fmt.Printf("ERROR: Error initializing the sqlite viewer: %v", err)
 		os.Exit(1)
 	}
-}
-
-// GetDatabaseForFile does what you think it does
-func GetDatabaseForFile(database string) *sql.DB {
-	dbMutex.Lock()
-	defer dbMutex.Unlock()
-	if db, ok := dbs[database]; ok {
-		return db
-	}
-	db, err := sql.Open("sqlite", database)
-	if err != nil {
-		panic(err)
-	}
-	dbs[database] = db
-	return db
 }

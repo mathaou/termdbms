@@ -3,6 +3,7 @@ package viewer
 import (
 	"bufio"
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,8 +20,6 @@ import (
 const (
 	HiddenTmpDirectoryName = ".termdbms"
 )
-
-// non interface helper methods
 
 func TruncateIfApplicable(m *TuiModel, conv string) (s string) {
 	max := 0
@@ -42,6 +41,22 @@ func TruncateIfApplicable(m *TuiModel, conv string) (s string) {
 	}
 
 	return s
+}
+
+func GetStringRepresentationOfInterfaceRaw(val interface{}) string {
+	if str, ok := val.(string); ok {
+		return str
+	} else if i, ok := val.(int64); ok {
+		return fmt.Sprintf("%d", i)
+	} else if i, ok := val.(float64); ok {
+		return fmt.Sprintf("%.2f", i)
+	} else if t, ok := val.(time.Time); ok {
+		return t.String()
+	} else if val == nil {
+		return "NULL"
+	}
+
+	return ""
 }
 
 func GetStringRepresentationOfInterface(m *TuiModel, val interface{}) string {
@@ -151,7 +166,7 @@ func getScrollDownMaxForSelection(m *TuiModel) int {
 		lines := SplitLines(conv)
 		max = len(lines)
 	} else {
-		return len(m.GetSchemaData()[m.TableHeaders[m.GetSchemaName()][0]])
+		return len(m.GetColumnData())
 	}
 
 	return max
@@ -220,6 +235,23 @@ func CopyFile(src string) (string, int64, error) {
 			info.Name())) // platform agnostic
 	return path, nBytes, err
 }
+
+// GetDatabaseForFile does what you think it does
+func GetDatabaseForFile(database string) *sql.DB {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
+	if db, ok := dbs[database]; ok {
+		return db
+	}
+	db, err := sql.Open("sqlite", database)
+	if err != nil {
+		panic(err)
+	}
+	dbs[database] = db
+	return db
+}
+
+// MATH YO
 
 func Min(a, b int) int {
 	if a < b {

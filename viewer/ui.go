@@ -67,6 +67,9 @@ func scrollDown(m *TuiModel) {
 		m.viewport.YOffset++
 		m.mouseEvent.Y = Min(m.mouseEvent.Y, m.viewport.YOffset)
 	}
+
+	m.preScrollYPosition = m.mouseEvent.Y
+	m.preScrollYOffset = m.viewport.YOffset
 }
 
 // scrollUp is a simple function to move the viewport up
@@ -77,8 +80,10 @@ func scrollUp(m *TuiModel) {
 	} else {
 		m.mouseEvent.Y = headerHeight
 	}
-}
 
+	m.preScrollYPosition = m.mouseEvent.Y
+	m.preScrollYOffset = m.viewport.YOffset
+}
 
 // TABLE STUFF
 
@@ -86,35 +91,19 @@ func scrollUp(m *TuiModel) {
 func displayTable(m *TuiModel) string {
 	var (
 		builder []string
-		headersSlice []string
 	)
-	columnNamesToInterfaceArray := m.GetSchemaData()
 
-	headers := m.GetHeaders() // TODO: maybe hot load the next slice in update
-	if len(headers) > 12 {
-		headersSlice = headers[m.scrollXOffset:12 + m.scrollXOffset]
-	} else {
-		headersSlice = headers
-	}
 	// go through all columns
-	for c, columnName := range headersSlice {
+	for c, columnName := range m.TableHeadersSlice {
 		if m.expandColumn > -1 && m.expandColumn != c {
 			continue
 		}
 
 		var (
 			rowBuilder []string
-			columnValues []interface{}
 		)
 
-		interfaceValues := columnNamesToInterfaceArray[columnName]
-		if len (interfaceValues) >= m.viewport.Height {
-			min := Min(m.viewport.YOffset, len(interfaceValues) - m.viewport.Height)
-			columnValues = interfaceValues[min:m.viewport.Height + min]
-		} else {
-			columnValues = interfaceValues
-		}
-
+		columnValues := m.DataSlices[columnName]
 		for r, val := range columnValues {
 			base := m.GetBaseStyle()
 			// handle highlighting
@@ -140,11 +129,10 @@ func displayTable(m *TuiModel) string {
 
 // displaySelection does that or writes it to a file if the selection is over a limit
 func displaySelection(m *TuiModel) string {
-	selectedColumn := m.GetHeaders()[m.GetColumn()]
-	col := m.GetSchemaData()[selectedColumn]
+	col := m.GetColumnData()
 	m.expandColumn = m.GetColumn()
 	row := m.GetRow()
-	if m.mouseEvent.Y >= m.viewport.Height + headerHeight && !m.renderSelection { // this is for when the selection is outside the bounds
+	if m.mouseEvent.Y >= m.viewport.Height+headerHeight && !m.renderSelection { // this is for when the selection is outside the bounds
 		return displayTable(m)
 	}
 

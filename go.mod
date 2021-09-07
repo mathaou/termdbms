@@ -1,4 +1,4 @@
-module tuitty
+module termdbms
 
 go 1.16
 
