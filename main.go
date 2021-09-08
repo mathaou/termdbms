@@ -5,15 +5,14 @@ import (
 	"flag"
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
-	//_ "modernc.org/sqlite"
-	_ "github.com/mattn/go-sqlite3" // this one seems to work better for compiling to arm
+	_ "modernc.org/sqlite"
 	"os"
 	"strings"
 	. "termdbms/viewer"
 )
 
 const (
-	debugPath = "" // set to whatever hardcoded path for testing
+	debugPath = "/home/mfarstad/Desktop/megastore.db" // set to whatever hardcoded path for testing
 )
 
 func main() {

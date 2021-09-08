@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"time"
 )
 
 var (
@@ -43,9 +44,10 @@ type TuiModel struct {
 	TableSelection     int
 	InitialFileName    string // used if saving destructively
 	ready              bool
-	renderSelection    bool
-	helpDisplay        bool
-	editModeEnabled    bool
+	renderSelection    bool   // render mode
+	helpDisplay        bool   // help display mode
+	editModeEnabled    bool   // edit mode
+	formatModeEnabled  bool
 	selectionText      string
 	preScrollYOffset   int
 	preScrollYPosition int
@@ -68,6 +70,8 @@ func (m TuiModel) Init() tea.Cmd {
 	maxInputLength = m.viewport.Width
 	m.textInput.CharLimit = -1
 	m.textInput.Width = maxInputLength
+	m.textInput.BlinkSpeed = time.Second
+	m.textInput.SetCursorMode(textinput.CursorBlink)
 
 	headerStyle = lipgloss.NewStyle().
 		Faint(true)

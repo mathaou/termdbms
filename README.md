@@ -1,4 +1,4 @@
-# termdbms:  A TUI for viewing and (eventually) editing databases, written in Go
+# termdbms: A TUI for viewing and editing databases, written in Go
 
 ###### Database Support
     SQLite
@@ -20,21 +20,21 @@
 - Rename anything
 - Filter tables by fuzzy search
 - MySQL/ PostgreSQL support
-- Edit during selection mode!
+- Better editing
+- No-style mode for terminal emulators that don't support ANSI / low power machines.
+- Support for 32-bit machines.
 
-#### Building (generally a go build should be enough, architecture included for completeness)
+#### 
+<details>
+    <summary>How To Build</summary>
 
 ##### Linux
 
     GOOS=linux GOARCH=amd64 go build
 
-##### Armv7
+##### ARM (runs kind of slow depending on the specs of the system)
 
-    // I tried getting modernc.org/sqlite working, but it gave me tons of errors.
-    // this set up got me a working binary on an ARM device with mattn/go-sqlite3
-    // you will need to fix the import in main.go accordingly, and update the driver
-    // string in database.go 
-    GOOS="linux" GOARCH="arm" GOARM=7 CGO_ENABLED=1 go build
+    GOOS=linux GOARCH=arm GOARM=7 go build
 
 ##### Windows
 
@@ -43,6 +43,8 @@
 ##### OSX
 
     GOOS=darwin GOARCH=amd64 go build
+
+</details>
 
 #### Terminal settings
 Whatever terminal emulator used should support ANSI escape sequences. If there is an option for 256 color mode, enable it.
@@ -63,17 +65,19 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
 	[WASD] to move around cells
 	[ENTER] to select selected cell for full screen view
 	[UP/K and DOWN/J] to navigate schemas
-    [LEFT/H and RIGHT/L] to navigate columns if there are more than the screen allows
-	[M(scroll up) and N(scroll down)] to scroll manually
+    [LEFT/H and RIGHT/L] to navigate columns if there are more than the screen allows.
+        Also to control the cursor of the text editor in edit mode.
+    [M(scroll up) and N(scroll down)] to scroll manually
 	[Q or CTRL+C] to quit program
     [B] to toggle borders!
     [C] to expand column
     [P] in selection mode to write cell to file
-	[ESC] to exit full screen view
+	[ESC] to exit full screen view, or to enter edit mode
 ###### EDIT MODE (cosmetic until serialization is working)
-    When a cell is selected, press [:] to enter edit mode
+    [ESC] to enter edit mode with no pre-loaded text input from selection
+    When a cell is selected, press [:] to enter edit mode with selection pre-loaded
     The text field in the header will be populated with the selected cells text. Modifications can be made freely.
-    [ESC] to clear text field
+    [ESC] to clear text field in edit mode
     [ENTER] to save text. Anything besides one of the reserved strings below will overwrite the current cell.
     [R] to redo actions, if applicable.
     [U] to undo actions, if applicable.

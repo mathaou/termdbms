@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"os"
 )
 
@@ -14,8 +15,6 @@ const (
 var (
 	inputBlacklist = []string{
 		"alt+[",
-		"left",
-		"right",
 		"up",
 		"down",
 		"tab",
@@ -65,7 +64,7 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 		m.ready = true
 		m.mouseEvent.Y = headerHeight
 
-		{ // race condition here
+		{ // race condition here on debug mode TODO
 			m.tableStyle = m.GetBaseStyle()
 			m.SetViewSlices()
 		}
@@ -83,9 +82,25 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 
 // handleKeyboardEvents does that
 func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
-	str := msg.String()
-	input := m.textInput.Value()
-	val := input + str
+	var (
+		str string
+		input string
+		min int
+		first string
+		last string
+		val string
+	)
+	str = msg.String()
+	input = m.textInput.Value()
+	if input != "" && m.textInput.Cursor() < len(input) - 1 {
+		min = Max(m.textInput.Cursor(), 0)
+		min = Min(min, len(input) - 1)
+		first = input[:min]
+		last = input[min:]
+		val = first + str + last
+	} else {
+		val = input + str
+	}
 
 	if m.editModeEnabled { // handle edit mode
 		if str == "esc" {
@@ -100,12 +115,30 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 			}
 		}
 
-		if str == "backspace" {
-			val := m.textInput.Value()
-			// TODO: lipgloss.Width couldn't be used here because the width was sometimes 2,
-			// when I just need to go back one
-			if len(val) > 0 {
-				m.textInput.SetValue(val[:len(val)-1])
+		if str == "left" {
+			cursorPosition := m.textInput.Cursor()
+			if cursorPosition > 0 {
+				m.textInput.SetCursor(m.textInput.Cursor() - 1)
+			} else if cursorPosition == 0 {
+				m.textInput.SetCursor(0)
+				//m.textInput.SetValue()
+			}
+		} else if str == "right" {
+			cursorPosition := m.textInput.Cursor()
+			if cursorPosition < len(m.textInput.View()) && len(input) > 0 {
+				m.textInput.SetCursor(m.textInput.Cursor() + 1)
+			}
+		} else if str == "backspace" {
+			cursor := m.textInput.Cursor()
+			if cursor == len(input) && len(input) > 0 {
+				m.textInput.SetValue(input[0:len(input) - 1])
+			} else if cursor > 0 {
+				min = Max(m.textInput.Cursor(), 0)
+				min = Min(min, len(input) - 1)
+				first = input[:min - 1]
+				last = input[min:]
+				m.textInput.SetValue(first + last)
+				m.textInput.SetCursor(m.textInput.Cursor() - 1)
 			}
 		} else if str == "enter" { // writes your selection
 			if input == ":q" { // quit mod mode
@@ -167,7 +200,11 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 			m.textInput.SetValue("")
 			*raw = input
 		} else {
-			m.textInput.SetValue(val)
+			if val != "" {
+				m.textInput.SetValue(val)
+			} else {
+				m.textInput.SetValue(str)
+			}
 		}
 
 		return
@@ -227,6 +264,9 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		}
 
 		str := GetStringRepresentationOfInterface(*raw)
+		if lipgloss.Width(str + m.textInput.Prompt) > m.viewport.Width {
+			m.formatModeEnabled = true
+		}
 		m.textInput.SetValue(str)
 		break
 	case "p":
@@ -274,7 +314,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 			m.scrollXOffset--
 		}
 		break
-	case "s": // manual keyboard control for row ++ (some weird behavior exists with the header height...)
+	case "s": // manual keyboard control for row ++
 		max := len(m.GetSchemaData()[m.GetHeaders()[m.GetColumn()]])
 
 		if m.mouseEvent.Y-headerHeight+m.viewport.YOffset < max-1 {
@@ -316,7 +356,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	case "n": // scroll down manually
 		scrollDown(m)
 		break
-	case "esc": // exit full screen cell value view, also brings back to top
+	case "esc": // exit full screen cell value view, also enabled edit mode
 		if !m.renderSelection && !m.helpDisplay {
 			m.editModeEnabled = true
 			break
