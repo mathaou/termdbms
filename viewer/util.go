@@ -3,7 +3,6 @@ package viewer
 import (
 	"bufio"
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -250,21 +249,6 @@ func CopyFile(src string) (string, int64, error) {
 			HiddenTmpDirectoryName,
 			info.Name())) // platform agnostic
 	return path, nBytes, err
-}
-
-// GetDatabaseForFile does what you think it does
-func GetDatabaseForFile(database string) *sql.DB {
-	dbMutex.Lock()
-	defer dbMutex.Unlock()
-	if db, ok := dbs[database]; ok {
-		return db
-	}
-	db, err := sql.Open("sqlite", database)
-	if err != nil {
-		panic(err)
-	}
-	dbs[database] = db
-	return db
 }
 
 // MATH YO

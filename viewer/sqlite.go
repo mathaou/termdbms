@@ -2,7 +2,9 @@ package viewer
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
+	"strings"
 )
 
 type SQLite struct {
@@ -10,17 +12,17 @@ type SQLite struct {
 	db *sql.DB
 }
 
-func (s *SQLite) Update(q *Update) {
-	protoQuery, columnOrder := q.GenerateQuery(s)
+func (db *SQLite) Update(q *Update) {
+	protoQuery, columnOrder := db.GenerateQuery(q)
 	values := make([]interface{}, len(columnOrder))
 	for i, v := range columnOrder {
 		if i == 0 {
 			values[i] = q.Update
 		} else {
-			values[i] = q.Values[v]
+			values[i] = q.GetValues()[v]
 		}
 	}
-	tx, err := s.GetDatabaseReference().Begin()
+	tx, err := db.GetDatabaseReference().Begin()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -36,21 +38,55 @@ func (s *SQLite) Update(q *Update) {
 	}
 }
 
-func (s *SQLite) GetFileName() string {
-	return s.FileName
+func (db *SQLite) GetFileName() string {
+	return db.FileName
 }
 
-func (s *SQLite) GetDatabaseReference() *sql.DB {
-	return s.db
+func (db *SQLite) GetDatabaseReference() *sql.DB {
+	return db.db
 }
 
-func (s *SQLite) CloseDatabaseReference() {
-	s.GetDatabaseReference().Close()
-	s.db = nil
+func (db *SQLite) CloseDatabaseReference() {
+	db.GetDatabaseReference().Close()
+	db.db = nil
 }
 
-func (s *SQLite) SetDatabaseReference(dbPath string) {
-	db := GetDatabaseForFile(dbPath)
-	s.FileName = dbPath
-	s.db = db
+func (db *SQLite) SetDatabaseReference(dbPath string) {
+	database := GetDatabaseForFile(dbPath)
+	db.FileName = dbPath
+	db.db = database
+}
+
+func (db SQLite) GetPlaceholderForDatabaseType() string {
+	return "?"
+}
+
+func (db *SQLite) GenerateQuery(u *Update) (string, []string) {
+	var (
+		query string
+		querySkeleton string
+		valueOrder []string
+	)
+
+	placeholder := db.GetPlaceholderForDatabaseType()
+
+	querySkeleton = fmt.Sprintf("UPDATE %s"+
+		" SET %s=%s ", u.TableName, u.Column, placeholder)
+	valueOrder = append(valueOrder, u.Column)
+
+	whereBuilder := strings.Builder{}
+	whereBuilder.WriteString(" WHERE ")
+	uLen := len(u.GetValues())
+	i := 0
+	for k := range u.GetValues() { // keep track of order since maps aren't deterministic
+		assertion := fmt.Sprintf("%s=%s ", k, placeholder)
+		valueOrder = append(valueOrder, k)
+		whereBuilder.WriteString(assertion)
+		if uLen > 1 && i < uLen-1 {
+			whereBuilder.WriteString("AND ")
+		}
+		i++
+	}
+	query = querySkeleton + strings.TrimSpace(whereBuilder.String()) + ";"
+	return query, valueOrder
 }

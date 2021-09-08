@@ -49,14 +49,19 @@ func (m *TuiModel) NumHeaders() int {
 
 // CellWidth gets the current cell width for schema
 func (m *TuiModel) CellWidth() int {
-	return m.viewport.Width / m.NumHeaders() + 1
+	h := m.NumHeaders()
+	if h == 0 {
+		println(h)
+	}
+	return m.viewport.Width / h + 1
 }
 
 // GetBaseStyle returns a new style that is used everywhere
 func (m *TuiModel) GetBaseStyle() lipgloss.Style {
+	cw := m.CellWidth()
 	s := lipgloss.NewStyle().
-		Width(m.CellWidth()).
-		MaxWidth(m.CellWidth()).
+		Width(cw).
+		MaxWidth(cw).
 		Align(lipgloss.Left).
 		Padding(0).
 		Margin(0)

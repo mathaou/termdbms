@@ -11,10 +11,6 @@ import (
 	. "termdbms/viewer"
 )
 
-var (
-	initialModel TuiModel
-)
-
 const (
 	debugPath = "" // set to whatever hardcoded path for testing
 )
@@ -100,12 +96,13 @@ func main() {
 	}()
 
 	// initializes the model used by bubbletea
-	initialModel = GetNewModel(dst, db)
-	initialModel.InitialFileName = path
-	initialModel.SetModel(c, db)
+	m := GetNewModel(dst, db)
+	InitialModel = &m
+	InitialModel.InitialFileName = path
+	InitialModel.SetModel(c, db)
 
 	// creates the program
-	p := tea.NewProgram(initialModel,
+	p := tea.NewProgram(InitialModel,
 		tea.WithAltScreen(),
 		tea.WithMouseAllMotion())
 

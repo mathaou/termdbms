@@ -63,10 +63,12 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 		m.viewport.YPosition = headerHeight
 		m.viewport.HighPerformanceRendering = true
 		m.ready = true
-		m.tableStyle = m.GetBaseStyle()
 		m.mouseEvent.Y = headerHeight
 
-		m.SetViewSlices()
+		{ // race condition here
+			m.tableStyle = m.GetBaseStyle()
+			m.SetViewSlices()
+		}
 	} else {
 		m.viewport.Width = msg.Width
 		m.viewport.Height = msg.Height - verticalMargins
@@ -100,27 +102,28 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 
 		if str == "backspace" {
 			val := m.textInput.Value()
-			// TODO: lipgloss.Width couldn't be used here because the width was sometimes 2, when I just need to go back one
+			// TODO: lipgloss.Width couldn't be used here because the width was sometimes 2,
+			// when I just need to go back one
 			if len(val) > 0 {
 				m.textInput.SetValue(val[:len(val)-1])
 			}
 		} else if str == "enter" { // writes your selection
-			if m.editModeEnabled && input == ":q" { // quit mod mode
+			if input == ":q" { // quit mod mode
 				m.editModeEnabled = false
 				m.textInput.SetValue("")
 				return
-			} else if m.editModeEnabled && input == ":s" { // saves copy, default filename + :s _____ will save with that filename in cwd
+			} else if input == ":s" { // saves copy, default filename + :s _____ will save with that filename in cwd
 				m.editModeEnabled = false
 				m.textInput.SetValue("")
 				newFileName := m.Serialize()
 				m.DisplayMessage(fmt.Sprintf("Wrote copy of database to filepath %s", newFileName))
 				return
-			} else if m.editModeEnabled && input == ":s!" { // overwrites original
+			} else if input == ":s!" { // overwrites original
 				m.editModeEnabled = false
 				m.textInput.SetValue("")
 				m.SerializeOverwrite()
 				return
-			} else if m.editModeEnabled && input == ":h" {
+			} else if input == ":h" {
 				m.DisplayMessage(GetHelpText())
 				return
 			}
@@ -146,8 +149,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 			// THE GLOBALIST TAKEOVER
 			deepState := TableState{
 				Database: &SQLite{
-					FileName:          m.Table.Database.GetFileName(),
-					db: nil,
+					FileName: m.Table.Database.GetFileName(),
+					db:       nil,
 				}, // placeholder for now while testing database copy
 				Data: deepCopy,
 			}
@@ -178,8 +181,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 			// THE GLOBALIST TAKEOVER
 			deepState := TableState{
 				Database: &SQLite{
-					FileName:          m.Table.Database.GetFileName(),
-					db: nil,
+					FileName: m.Table.Database.GetFileName(),
+					db:       nil,
 				}, // placeholder for now while testing database copy
 				Data: deepCopy,
 			}
@@ -200,8 +203,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 			// THE GLOBALIST TAKEOVER
 			deepState := TableState{
 				Database: &SQLite{
-					FileName:          m.Table.Database.GetFileName(),
-					db: nil,
+					FileName: m.Table.Database.GetFileName(),
+					db:       nil,
 				}, // placeholder for now while testing database copy
 				Data: deepCopy,
 			}
@@ -262,7 +265,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		m.scrollXOffset = 0
 		break
 	case "right", "l":
-		if len(m.GetHeaders()) > maxHeaders && m.scrollXOffset < len(m.GetHeaders()) - 1 - maxHeaders {
+		if len(m.GetHeaders()) > maxHeaders && m.scrollXOffset < len(m.GetHeaders())-1-maxHeaders {
 			m.scrollXOffset++
 		}
 		break
@@ -274,15 +277,21 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	case "s": // manual keyboard control for row ++ (some weird behavior exists with the header height...)
 		max := len(m.GetSchemaData()[m.GetHeaders()[m.GetColumn()]])
 
-		if m.mouseEvent.Y-headerHeight < max-1 {
+		if m.mouseEvent.Y-headerHeight+m.viewport.YOffset < max-1 {
 			m.mouseEvent.Y++
-		} else {
-			m.mouseEvent.Y = max - 1 + headerHeight
+			if m.mouseEvent.Y > m.viewport.Height+headerHeight-1 {
+				scrollDown(m)
+				m.mouseEvent.Y = m.viewport.Height + headerHeight - 1
+			}
 		}
 
 		break
 	case "w": // manual keyboard control for row --
-		if m.mouseEvent.Y > headerHeight {
+		pre := m.mouseEvent.Y
+		if m.viewport.YOffset > 0 && m.mouseEvent.Y == headerHeight {
+			scrollUp(m)
+			m.mouseEvent.Y = pre
+		} else if m.mouseEvent.Y > headerHeight {
 			m.mouseEvent.Y--
 		}
 		break
@@ -308,6 +317,10 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		scrollDown(m)
 		break
 	case "esc": // exit full screen cell value view, also brings back to top
+		if !m.renderSelection && !m.helpDisplay {
+			m.editModeEnabled = true
+			break
+		}
 		m.renderSelection = false
 		m.helpDisplay = false
 		m.selectionText = ""

@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"math"
 	"os"
-	"runtime"
 	"strings"
 )
 
@@ -17,9 +16,9 @@ var (
 	height         int
 	headerHeight   = 3
 	footerHeight   = 1
-	newline        string
 	maxInputLength int
 	headerStyle    lipgloss.Style
+	InitialModel   *TuiModel
 )
 
 const (
@@ -66,11 +65,6 @@ type TuiModel struct {
 
 // Init currently doesn't do anything but necessary for interface adherence
 func (m TuiModel) Init() tea.Cmd {
-	newline = "\n"
-	if runtime.GOOS == "windows" {
-		newline = "\r\n"
-	}
-
 	maxInputLength = m.viewport.Width
 	m.textInput.CharLimit = -1
 	m.textInput.Width = maxInputLength
@@ -114,7 +108,7 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		handleKeyboardEvents(&m, &msg)
-		if !m.editModeEnabled {
+		if !m.editModeEnabled && m.ready {
 			m.SetViewSlices()
 		}
 
@@ -260,6 +254,7 @@ func (m TuiModel) View() string {
 // SetModel creates a model to be used by bubbletea using some golang wizardry
 func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 	var err error
+
 	indexMap := 0
 
 	// gets all the schema names of the database
