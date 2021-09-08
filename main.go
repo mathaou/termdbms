@@ -16,7 +16,7 @@ var (
 )
 
 const (
-	debugPath = "/home/mfarstad/Desktop/ts.sqlite" // set to whatever hardcoded path for testing
+	debugPath = "" // set to whatever hardcoded path for testing
 )
 
 func main() {
