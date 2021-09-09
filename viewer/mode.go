@@ -18,35 +18,32 @@ func handleEditMode(m *TuiModel, str, first, last, input, val string) {
 		}
 	}
 
-	/*
 	if str == "left" {
-			cursorPosition := m.textInput.Cursor()
+		cursorPosition := m.textInput.Cursor()
 
-			if cursorPosition == m.textInput.offset {
-				m.textInput.offset--
-				m.textInput.offsetRight--
-			}
+		if cursorPosition == m.textInput.offset {
+			m.textInput.offset--
+			m.textInput.offsetRight--
+		}
 
-			m.textInput.SetCursor(cursorPosition - 1)
-		} else if str == "right" {
-			cursorPosition := m.textInput.Cursor()
+		m.textInput.SetCursor(cursorPosition - 1)
+	} else if str == "right" {
+		cursorPosition := m.textInput.Cursor()
 
-			if cursorPosition == m.textInput.offsetRight {
-				m.textInput.offset++
-				m.textInput.offsetRight++
-			}
+		if cursorPosition == m.textInput.offsetRight {
+			m.textInput.offset++
+			m.textInput.offsetRight++
+		}
 
-			m.textInput.setCursor(cursorPosition + 1)
-		} else
-	*/
-	if str == "backspace" {
+		m.textInput.setCursor(cursorPosition + 1)
+	} else if str == "backspace" {
 		cursor := m.textInput.Cursor()
 		if cursor == len(input) && len(input) > 0 {
-			m.textInput.SetValue(input[0:len(input) - 1])
+			m.textInput.SetValue(input[0 : len(input)-1])
 		} else if cursor > 0 {
 			min := Max(m.textInput.Cursor(), 0)
-			min = Min(min, len(input) - 1)
-			first = input[:min - 1]
+			min = Min(min, len(input)-1)
+			first = input[:min-1]
 			last = input[min:]
 			m.textInput.SetValue(first + last)
 			m.textInput.SetCursor(m.textInput.Cursor() - 1)

@@ -9,7 +9,6 @@ import (
 	"math"
 	"os"
 	"strings"
-	"time"
 )
 
 var (
@@ -70,12 +69,6 @@ func (m TuiModel) Init() tea.Cmd {
 	headerStyle = lipgloss.NewStyle().
 		Faint(true)
 
-	maxInputLength = m.viewport.Width
-	m.textInput.CharLimit = -1
-	m.textInput.Width = maxInputLength - lipgloss.Width(m.textInput.Prompt)
-	m.textInput.BlinkSpeed = time.Second
-	m.textInput.SetCursorMode(CursorBlink)
-
 	return nil
 }
 
@@ -85,10 +78,6 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		cmd  tea.Cmd
 		cmds []tea.Cmd
 	)
-
-	if m.viewport.Width != m.textInput.Width {
-		m.textInput.Width = m.viewport.Width
-	}
 
 	switch msg := message.(type) {
 	case tea.MouseMsg:
@@ -185,7 +174,7 @@ func (m TuiModel) View() string {
 
 				view := m.textInput.View()
 				viewLen := lipgloss.Width(view)
-				outOfRange := m.viewport.Width < viewLen
+				outOfRange := m.viewport.Width <= viewLen
 
 				if outOfRange {
 					min = Abs(m.viewport.Width - viewLen)

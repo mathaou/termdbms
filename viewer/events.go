@@ -4,6 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"time"
 )
 
 const (
@@ -61,6 +62,12 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 		m.viewport.HighPerformanceRendering = true
 		m.ready = true
 		m.mouseEvent.Y = headerHeight
+
+		maxInputLength = m.viewport.Width
+		m.textInput.CharLimit = -1
+		m.textInput.Width = maxInputLength - lipgloss.Width(m.textInput.Prompt) - 1
+		m.textInput.BlinkSpeed = time.Second
+		m.textInput.SetCursorMode(CursorBlink)
 
 		{ // race condition here on debug mode TODO
 			m.tableStyle = m.GetBaseStyle()
