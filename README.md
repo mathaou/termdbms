@@ -19,7 +19,7 @@
 
 ![Lot of Rows](https://i.imgur.com/yo7DMaa.gif)
 
-#### Serialize your changes as a copy or over original!
+#### Serialize your changes as a copy or over the database original!
 
 ![Serialization](https://i.imgur.com/GhMcnid.gif)
 
