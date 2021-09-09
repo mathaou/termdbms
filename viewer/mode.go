@@ -108,12 +108,17 @@ func handleEditMode(m *TuiModel, str, first, last, input, val string) {
 		m.textInput.SetValue("")
 		*raw = input
 	} else {
+		prePos := m.textInput.Cursor()
 		if val != "" {
 			m.textInput.SetValue(val)
 		} else {
 			m.textInput.SetValue(str)
 		}
-		m.textInput.SetCursor(len(m.textInput.Value()))
+
+		if prePos != 0 {
+			prePos = m.textInput.Cursor()
+		}
+		m.textInput.setCursor(prePos + 1)
 	}
 
 	return
