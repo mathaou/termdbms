@@ -167,6 +167,9 @@ func (m *TuiModel) CopyMap() (to map[string]interface{}) {
 
 // assembleTable shows either the selection text or the table
 func assembleTable(m *TuiModel) string {
+	if m.helpDisplay {
+		return GetHelpText()
+	}
 	if m.renderSelection {
 		return displaySelection(m)
 	}

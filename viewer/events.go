@@ -1,8 +1,10 @@
 package viewer
 
 import (
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"time"
 )
 
 const (
@@ -53,13 +55,19 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 	verticalMargins := headerHeight + footerHeight
 
 	if !m.ready {
-		m.viewport = ViewportModel{
+		m.viewport = viewport.Model{
 			Width:  msg.Width,
 			Height: msg.Height - verticalMargins}
 		m.viewport.YPosition = headerHeight
 		m.viewport.HighPerformanceRendering = true
 		m.ready = true
 		m.mouseEvent.Y = headerHeight
+
+		maxInputLength = m.viewport.Width
+		m.textInput.CharLimit = -1
+		m.textInput.Width = maxInputLength - lipgloss.Width(m.textInput.Prompt)
+		m.textInput.BlinkSpeed = time.Second
+		m.textInput.SetCursorMode(CursorBlink)
 
 		{ // race condition here on debug mode TODO
 			m.tableStyle = m.GetBaseStyle()
@@ -71,7 +79,7 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 	}
 
 	if m.viewport.HighPerformanceRendering {
-		return Sync(m.viewport)
+		return viewport.Sync(m.viewport)
 	}
 
 	return nil

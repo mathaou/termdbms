@@ -2,7 +2,6 @@ package viewer
 
 import (
 	"database/sql"
-	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -26,7 +25,7 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 		ready:           false,
 		renderSelection: false,
 		editModeEnabled: false,
-		textInput:       textinput.NewModel(),
+		textInput:       NewModel(),
 	}
 }
 
@@ -167,6 +166,6 @@ func (m *TuiModel) GetSelectedOption() (*interface{}, int, []interface{}) {
 func (m *TuiModel) DisplayMessage(msg string) {
 	m.selectionText = msg
 	m.editModeEnabled = false
-	m.renderSelection = true
+	m.renderSelection = false
 	m.helpDisplay = true
 }
