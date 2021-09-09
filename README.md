@@ -1,4 +1,4 @@
-# termdbms: A TUI for viewing and editing databases, written in Go
+# termdbms: A TUI for viewing and editing databases, written in pure Go
 
 ###### Database Support
     SQLite
