@@ -53,6 +53,7 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
  - The headers wig out sometimes in selection mode
  - Possible race conditions with getting data initialized, only happens when debugging?
  - Serializing a numeric string change (like "1234") sometimes appends a decimal at the end, even though go recognizes it as a string when serializing. This is likely a bug at the database driver level, or I am not good at this.
+ - Mouse down does not work in Windows Terminal, but it does work in Command Prompt.
 
 ##### Help:
 	-p	database path (absolute)
