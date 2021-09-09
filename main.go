@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	debugPath = "/home/mfarstad/Desktop/megastore.db" // set to whatever hardcoded path for testing
+	debugPath = "" // set to whatever hardcoded path for testing
 )
 
 func main() {
