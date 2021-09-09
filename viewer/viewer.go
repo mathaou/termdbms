@@ -167,24 +167,7 @@ func (m TuiModel) View() string {
 			var headerTop string
 
 			if m.editModeEnabled {
-				var (
-					min int
-					max int
-				)
-
-				view := m.textInput.View()
-				viewLen := lipgloss.Width(view)
-				outOfRange := m.viewport.Width <= viewLen
-
-				if outOfRange {
-					min = Abs(m.viewport.Width - viewLen)
-					max = m.viewport.Width + min
-				} else {
-					min = 0
-					max = viewLen
-				}
-
-				headerTop = view[min:max]
+				headerTop = m.textInput.View()
 			} else {
 				headerTop = fmt.Sprintf("%s (%d/%d) - %d record(s) + %d column(s)",
 					m.GetSchemaName(),

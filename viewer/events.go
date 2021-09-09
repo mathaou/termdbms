@@ -65,7 +65,7 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 
 		maxInputLength = m.viewport.Width
 		m.textInput.CharLimit = -1
-		m.textInput.Width = maxInputLength - lipgloss.Width(m.textInput.Prompt) - 1
+		m.textInput.Width = maxInputLength - lipgloss.Width(m.textInput.Prompt)
 		m.textInput.BlinkSpeed = time.Second
 		m.textInput.SetCursorMode(CursorBlink)
 
