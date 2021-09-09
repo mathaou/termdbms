@@ -2,10 +2,15 @@ package viewer
 
 import (
 	"fmt"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"strconv"
 	"strings"
 	"time"
+)
+
+var (
+	Program *tea.Program
 )
 
 // selectOption does just that
@@ -21,7 +26,8 @@ func selectOption(m *TuiModel) {
 
 	if row <= l && l > 0 &&
 		m.mouseEvent.Y >= headerHeight &&
-		m.mouseEvent.Y < m.viewport.Height + headerHeight {
+		m.mouseEvent.Y < m.viewport.Height + headerHeight &&
+		m.mouseEvent.X < m.CellWidth() * (len(m.TableHeadersSlice)) {
 		if conv, ok := (*raw).(string); ok {
 			if format, err := formatJson(conv); err == nil {
 				m.selectionText = format

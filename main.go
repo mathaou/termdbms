@@ -102,11 +102,11 @@ func main() {
 	InitialModel.SetModel(c, db)
 
 	// creates the program
-	p := tea.NewProgram(InitialModel,
+	Program = tea.NewProgram(InitialModel,
 		tea.WithAltScreen(),
 		tea.WithMouseAllMotion())
 
-	if err := p.Start(); err != nil {
+	if err := Program.Start(); err != nil {
 		fmt.Printf("ERROR: Error initializing the sqlite viewer: %v", err)
 		os.Exit(1)
 	}

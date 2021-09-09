@@ -107,6 +107,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		val = input + str
 	}
 
+	cw := m.CellWidth()
+
 	if m.editModeEnabled { // handle edit mode
 		handleEditMode(m, str, first, last, input, val)
 		return
@@ -190,7 +192,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		}
 
 		// fix spacing and whatnot
-		m.tableStyle = m.tableStyle.Width(m.CellWidth())
+		m.tableStyle = m.tableStyle.Width(cw)
 		m.viewport.YOffset = 0
 		m.scrollXOffset = 0
 		break
@@ -202,12 +204,14 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		}
 
 		// fix spacing and whatnot
-		m.tableStyle = m.tableStyle.Width(m.CellWidth())
+		m.tableStyle = m.tableStyle.Width(cw)
 		m.viewport.YOffset = 0
 		m.scrollXOffset = 0
 		break
 	case "right", "l":
-		if len(m.GetHeaders()) > maxHeaders && m.scrollXOffset < len(m.GetHeaders())-1-maxHeaders {
+		headers := m.GetHeaders()
+		headersLen := len(headers)
+		if headersLen > maxHeaders && m.scrollXOffset <= headersLen-maxHeaders {
 			m.scrollXOffset++
 		}
 		break
@@ -238,13 +242,25 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		}
 		break
 	case "d": // manual keyboard control for column ++
-		if m.mouseEvent.X+m.CellWidth() <= m.viewport.Width {
-			m.mouseEvent.X += m.CellWidth()
+		col := m.GetColumn()
+		cols := len(m.TableHeadersSlice) - 1
+		if (m.mouseEvent.X - m.viewport.Width) <= cw && m.GetColumn() < cols { // within tolerances
+			m.mouseEvent.X += cw
+		} else if col == cols {
+			go Program.Send(tea.KeyMsg{
+				Type:  tea.KeyRight,
+				Alt:   false,
+			})
 		}
 		break
 	case "a": // manual keyboard control for column --
-		if m.mouseEvent.X-m.CellWidth() >= 0 {
-			m.mouseEvent.X -= m.CellWidth()
+		if m.mouseEvent.X-cw >= 0 {
+			m.mouseEvent.X -= cw
+		} else if m.GetColumn() == 0 {
+			go Program.Send(tea.KeyMsg{
+				Type:  tea.KeyLeft,
+				Alt:   false,
+			})
 		}
 		break
 	case "enter": // manual trigger for select highlighted cell

@@ -57,14 +57,16 @@ func handleEditMode(m *TuiModel, str, first, last, input, val string) {
 			m.editModeEnabled = false
 			m.textInput.SetValue("")
 			newFileName := m.Serialize()
-			m.DisplayMessage(fmt.Sprintf("Wrote copy of database to filepath %s", newFileName))
+			m.DisplayMessage(fmt.Sprintf("Wrote copy of database to filepath %s.", newFileName))
 			return
-		} else if input == ":s!" { // overwrites original
+		} else if input == ":s!" { // overwrites original - should add confirmation dialog!
 			m.editModeEnabled = false
 			m.textInput.SetValue("")
 			m.SerializeOverwrite()
+			m.DisplayMessage("Overwrote original database with changes.")
 			return
 		} else if input == ":h" {
+			m.helpDisplay = true
 			m.DisplayMessage(GetHelpText())
 			return
 		}

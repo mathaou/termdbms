@@ -166,6 +166,5 @@ func (m *TuiModel) GetSelectedOption() (*interface{}, int, []interface{}) {
 func (m *TuiModel) DisplayMessage(msg string) {
 	m.selectionText = msg
 	m.editModeEnabled = false
-	m.renderSelection = false
-	m.helpDisplay = true
+	m.renderSelection = true
 }

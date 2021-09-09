@@ -283,5 +283,5 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 	}
 
 	// set the first table to be initial view
-	m.TableSelection = 1
+	m.TableSelection = 3
 }

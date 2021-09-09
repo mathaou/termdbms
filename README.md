@@ -7,24 +7,36 @@
 
 ### made with modernc.org/sqlite, charmbracelet/bubbletea, and charmbracelet/lipgloss
 
-#### Works with keyboard:
+#### Works with keyboard and mouse!
 
-![Keyboard Control](https://i.imgur.com/ryDLroi.gif)
+![Keyboard Control](https://i.imgur.com/vmK0DVn.gif)
 
-#### ... And mouse!
+#### Navigate tables with any number of columns!
 
-![Mouse Control](https://i.imgur.com/O8DT9q5.gif)
+![Columns and Tables](https://i.imgur.com/EqZRPqO.gif)
+
+#### Navigate tables with any number of rows!
+
+![Lot of Rows](https://i.imgur.com/yo7DMaa.gif)
+
+#### Serialize your changes as a copy or over original!
+
+![Serialization](https://i.imgur.com/GhMcnid.gif)
+
+#### Other Features
+
+- Automatic JSON formatting in selection mode
+- Undo/Redo stack
 
 #### Roadmap
 
 - Run SQL queries and display results
 - Add/remove rows/columns/cells
-- Rename anything
 - Filter tables by fuzzy search
 - MySQL/ PostgreSQL support
 - Better editing
 - No-style mode for terminal emulators that don't support ANSI / low power machines.
-- Support for 32-bit machines.
+- Page Up / Page Down for scrolling a screens worth of rows at a time!
 
 #### 
 <details>
@@ -32,7 +44,7 @@
 
 ##### Linux
 
-    GOOS=linux GOARCH=amd64 go build
+    GOOS=linux GOARCH=amd64/386 go build
 
 ##### ARM (runs kind of slow depending on the specs of the system)
 
@@ -40,7 +52,7 @@
 
 ##### Windows
 
-    GOOS=windows GOARCH=amd64 go build
+    GOOS=windows GOARCH=amd64/386 go build
 
 ##### OSX
 
@@ -65,11 +77,12 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
 	Scroll up + down to navigate table
 	Move cursor to select cells for full screen viewing
 ###### KEYBOARD
-	[WASD] to move around cells
+	[WASD] to move around cells, and also move columns if close to edge.
 	[ENTER] to select selected cell for full screen view
 	[UP/K and DOWN/J] to navigate schemas
     [LEFT/H and RIGHT/L] to navigate columns if there are more than the screen allows.
         Also to control the cursor of the text editor in edit mode.
+    [BACKSPACE] to delete text before cursor in edit mode.
     [M(scroll up) and N(scroll down)] to scroll manually
 	[Q or CTRL+C] to quit program
     [B] to toggle borders!
@@ -86,5 +99,5 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
     [U] to undo actions, if applicable.
     [:q] to exit edit mode
     [:s] to save database to a new file
-    [:s!] to overwrite original database file
+    [:s!] to overwrite original database file. A confirmation dialog will be added soon.
     [:h] to display help text
