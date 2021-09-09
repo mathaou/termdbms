@@ -2,37 +2,44 @@ package viewer
 
 import (
 	"fmt"
-	"github.com/charmbracelet/bubbles/textinput"
 	"os"
 )
 
+// handleEditMode implementation is kind of jank, but we can clean it up later
 func handleEditMode(m *TuiModel, str, first, last, input, val string) {
 	if str == "esc" {
 		m.textInput.SetValue("")
 		return
 	}
 
-	m.textInput.SetCursorMode(textinput.CursorBlink)
 	for _, v := range inputBlacklist {
 		if str == v {
 			return
 		}
 	}
 
+	/*
 	if str == "left" {
-		cursorPosition := m.textInput.Cursor()
-		if cursorPosition > 0 {
-			m.textInput.SetCursor(m.textInput.Cursor() - 1)
-		} else if cursorPosition == 0 {
-			m.textInput.SetCursor(0)
-			//m.textInput.SetValue()
-		}
-	} else if str == "right" {
-		cursorPosition := m.textInput.Cursor()
-		if cursorPosition < len(m.textInput.View()) && len(input) > 0 {
-			m.textInput.SetCursor(m.textInput.Cursor() + 1)
-		}
-	} else if str == "backspace" {
+			cursorPosition := m.textInput.Cursor()
+
+			if cursorPosition == m.textInput.offset {
+				m.textInput.offset--
+				m.textInput.offsetRight--
+			}
+
+			m.textInput.SetCursor(cursorPosition - 1)
+		} else if str == "right" {
+			cursorPosition := m.textInput.Cursor()
+
+			if cursorPosition == m.textInput.offsetRight {
+				m.textInput.offset++
+				m.textInput.offsetRight++
+			}
+
+			m.textInput.setCursor(cursorPosition + 1)
+		} else
+	*/
+	if str == "backspace" {
 		cursor := m.textInput.Cursor()
 		if cursor == len(input) && len(input) > 0 {
 			m.textInput.SetValue(input[0:len(input) - 1])
@@ -88,7 +95,7 @@ func handleEditMode(m *TuiModel, str, first, last, input, val string) {
 			Database: &SQLite{
 				FileName: m.Table.Database.GetFileName(),
 				db:       nil,
-			}, // placeholder for now while testing database copy
+			},
 			Data: deepCopy,
 		}
 		m.UndoStack = append(m.UndoStack, deepState)
@@ -109,6 +116,7 @@ func handleEditMode(m *TuiModel, str, first, last, input, val string) {
 		} else {
 			m.textInput.SetValue(str)
 		}
+		m.textInput.SetCursor(len(m.textInput.Value()))
 	}
 
 	return

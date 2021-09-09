@@ -3,7 +3,7 @@ package viewer
 import (
 	"database/sql"
 	"fmt"
-	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"math"
@@ -54,10 +54,10 @@ type TuiModel struct {
 	scrollXOffset      int
 	borderToggle       bool
 	expandColumn       int
-	viewport           ViewportModel
+	viewport           viewport.Model
 	tableStyle         lipgloss.Style
 	mouseEvent         tea.MouseEvent
-	textInput          textinput.Model
+	textInput          TextInputModel
 	UndoStack          []TableState
 	RedoStack          []TableState
 	err                error
@@ -67,14 +67,14 @@ type TuiModel struct {
 
 // Init currently doesn't do anything but necessary for interface adherence
 func (m TuiModel) Init() tea.Cmd {
-	maxInputLength = m.viewport.Width
-	m.textInput.CharLimit = -1
-	m.textInput.Width = maxInputLength
-	m.textInput.BlinkSpeed = time.Second
-	m.textInput.SetCursorMode(textinput.CursorBlink)
-
 	headerStyle = lipgloss.NewStyle().
 		Faint(true)
+
+	maxInputLength = m.viewport.Width
+	m.textInput.CharLimit = -1
+	m.textInput.Width = maxInputLength - lipgloss.Width(m.textInput.Prompt)
+	m.textInput.BlinkSpeed = time.Second
+	m.textInput.SetCursorMode(CursorBlink)
 
 	return nil
 }
@@ -85,6 +85,10 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		cmd  tea.Cmd
 		cmds []tea.Cmd
 	)
+
+	if m.viewport.Width != m.textInput.Width {
+		m.textInput.Width = m.viewport.Width
+	}
 
 	switch msg := message.(type) {
 	case tea.MouseMsg:
@@ -180,7 +184,7 @@ func (m TuiModel) View() string {
 				)
 
 				view := m.textInput.View()
-				viewLen := len(view)
+				viewLen := lipgloss.Width(view)
 				outOfRange := m.viewport.Width < viewLen
 
 				if outOfRange {
@@ -192,7 +196,6 @@ func (m TuiModel) View() string {
 				}
 
 				headerTop = view[min:max]
-				headerTop += strings.Repeat(" ", m.viewport.Width-len(headerTop))
 			} else {
 				headerTop = fmt.Sprintf("%s (%d/%d) - %d record(s) + %d column(s)",
 					m.GetSchemaName(),
@@ -243,16 +246,7 @@ func (m TuiModel) View() string {
 
 	close(done) // close
 
-	if m.helpDisplay {
-		return content
-	}
-
-	if content == "" { // race condition TODO
-		m.SetViewSlices()
-		return m.View()
-	} else {
-		return fmt.Sprintf("%s\n%s\n%s", header, content, footer) // render
-	}
+	return fmt.Sprintf("%s\n%s\n%s", header, content, footer) // render
 }
 
 // SetModel creates a model to be used by bubbletea using some golang wizardry

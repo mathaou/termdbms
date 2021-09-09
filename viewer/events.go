@@ -1,6 +1,7 @@
 package viewer
 
 import (
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -53,7 +54,7 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 	verticalMargins := headerHeight + footerHeight
 
 	if !m.ready {
-		m.viewport = ViewportModel{
+		m.viewport = viewport.Model{
 			Width:  msg.Width,
 			Height: msg.Height - verticalMargins}
 		m.viewport.YPosition = headerHeight
@@ -71,7 +72,7 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 	}
 
 	if m.viewport.HighPerformanceRendering {
-		return Sync(m.viewport)
+		return viewport.Sync(m.viewport)
 	}
 
 	return nil
