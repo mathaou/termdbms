@@ -12,8 +12,6 @@ import (
 )
 
 var (
-	width          int
-	height         int
 	headerHeight   = 3
 	footerHeight   = 1
 	maxInputLength int
@@ -66,8 +64,11 @@ type TuiModel struct {
 
 // Init currently doesn't do anything but necessary for interface adherence
 func (m TuiModel) Init() tea.Cmd {
-	headerStyle = lipgloss.NewStyle().
-		Faint(true)
+	headerStyle = lipgloss.NewStyle()
+
+	if !Ascii {
+		headerStyle = headerStyle.Faint(true)
+	}
 
 	return nil
 }
@@ -148,9 +149,12 @@ func (m TuiModel) View() string {
 		)
 
 		style := m.GetBaseStyle().
-			Width(m.CellWidth()).
-			Foreground(lipgloss.Color(headerForeground)).
-			Background(lipgloss.Color(headerBorderBackground))
+			Width(m.CellWidth())
+
+		if !Ascii {
+			style = style.Foreground(lipgloss.Color(headerForeground)).
+				Background(lipgloss.Color(headerBorderBackground))
+		}
 		headers := m.TableHeadersSlice
 		for i, d := range headers { // write all headers
 			if m.expandColumn != -1 && i != m.expandColumn {
@@ -262,7 +266,7 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 			columns := make([]interface{}, len(columnNames))
 			columnPointers := make([]interface{}, len(columnNames))
 			// init interface array
-			for i, _ := range columns {
+			for i := range columns {
 				columnPointers[i] = &columns[i]
 			}
 

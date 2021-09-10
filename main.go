@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	_ "modernc.org/sqlite"
 	"os"
 	"strings"
@@ -23,9 +25,12 @@ const (
 )
 
 func main() {
-	var path string
-	var databaseType string
-	var help bool
+	var (
+		path string
+		databaseType string
+		help bool
+		ascii bool
+	)
 
 	debug := debugPath != ""
 	// if not debug, then this section parses and validates cmd line arguments
@@ -39,7 +44,7 @@ func main() {
 		}
 
 		argLength := len(os.Args[1:])
-		if argLength > 2 || argLength == 0 {
+		if argLength > 4 || argLength == 0 {
 			fmt.Printf("ERROR: Invalid number of arguments supplied: %d\n", argLength)
 			flag.Usage()
 			os.Exit(1)
@@ -47,23 +52,26 @@ func main() {
 
 		// flags declaration using flag package
 		flag.StringVar(&databaseType, "d", string(DatabaseSQLite), "Specifies the SQL driver to use. Defaults to SQLite.")
+		flag.StringVar(&path, "p", "", "Path to the database file.")
 		flag.BoolVar(&help, "h", false, "Prints the help message.")
+		flag.BoolVar(&ascii, "a", false, "Denotes that the app should render with minimal styling to remove ANSI sequences.")
 
 		flag.Parse()
 
-		args := flag.Args()
-
-		if len(args) == 0 {
+		if path == "" {
 			fmt.Printf("ERROR: no path for database.\n")
 			flag.Usage()
 			os.Exit(1)
 		}
 
-		path = args[0]
-
 		if help {
 			flag.Usage()
 			os.Exit(0)
+		}
+
+		if ascii {
+			Ascii = true
+			lipgloss.SetColorProfile(termenv.Ascii)
 		}
 
 		if path != "" && !IsUrl(path) {

@@ -11,6 +11,7 @@ import (
 
 var (
 	Program *tea.Program
+	Ascii bool
 )
 
 // selectOption does just that
@@ -52,7 +53,7 @@ func swapTableValues(m *TuiModel, f, t *TableState) {
 			// golang wizardry
 			columns := make([]interface{}, len(columnNames))
 
-			for i, _ := range columns {
+			for i := range columns {
 				columns[i] = copyValues[columnNames[i]][0]
 			}
 
@@ -124,12 +125,16 @@ func displayTable(m *TuiModel) string {
 		columnValues := m.DataSlices[columnName]
 		for r, val := range columnValues {
 			base := m.GetBaseStyle()
+			s := GetStringRepresentationOfInterface(val)
 			// handle highlighting
 			if c == m.GetColumn() && r == m.GetRow() {
-				base.Foreground(lipgloss.Color(highlight))
+				if !Ascii {
+					base.Foreground(lipgloss.Color(highlight))
+				} else if Ascii {
+					s = "|" + s
+				}
 			}
 			// display text based on type
-			s := GetStringRepresentationOfInterface(val)
 			rowBuilder = append(rowBuilder, base.Render(TruncateIfApplicable(m, s)))
 		}
 
@@ -185,7 +190,7 @@ func displaySelection(m *TuiModel) string {
 	if lipgloss.Width(prettyPrint) > maximumRendererCharacters {
 		fileName, err := WriteTextFile(m, prettyPrint)
 		if err != nil {
-			fmt.Printf("ERROR: could not write file %d", fileName)
+			fmt.Printf("ERROR: could not write file %s", fileName)
 		}
 		return fmt.Sprintf("Selected string exceeds maximum limit of %d characters. \n"+
 			"The file was written to your current working "+

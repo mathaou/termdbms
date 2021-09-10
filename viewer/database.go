@@ -28,13 +28,12 @@ func init() {
 }
 
 func (m *TuiModel) ProcessSqlQueryForDatabaseType(q Query) {
-	switch q.(type) {
+	switch conv := q.(type) {
 	case *Update:
-		update, _ := q.(*Update)
-		update.v = m.GetRowData()
-		update.TableName = m.GetSchemaName()
-		update.Column = m.GetSelectedColumnName()
-		m.Table.Database.Update(update)
+		conv.v = m.GetRowData()
+		conv.TableName = m.GetSchemaName()
+		conv.Column = m.GetSelectedColumnName()
+		m.Table.Database.Update(conv)
 		break
 	}
 }

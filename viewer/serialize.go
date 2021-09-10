@@ -1,6 +1,7 @@
 package viewer
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -9,9 +10,38 @@ import (
 	"strings"
 )
 
-func (m *TuiModel) Serialize() string {
-	m.Table.Database.CloseDatabaseReference()
-	source, err := os.ReadFile(m.Table.Database.GetFileName())
+var (
+	serializationErrorString string
+)
+
+func init() {
+	serializationErrorString = fmt.Sprintf("Database driver %s does not support serialization.", DriverString)
+}
+
+func (m *TuiModel) Serialize() (string, error) {
+	switch m.Table.Database.(type) {
+	case *SQLite:
+		return SerializeSQLiteDB(m.Table.Database.(*SQLite), m), nil
+	default:
+		return "", errors.New(serializationErrorString)
+	}
+}
+
+func (m *TuiModel) SerializeOverwrite() error {
+	switch m.Table.Database.(type) {
+	case *SQLite:
+		SerializeOverwrite(m.Table.Database.(*SQLite), m)
+		return nil
+	default:
+		return errors.New(serializationErrorString)
+	}
+}
+
+// SQLITE
+
+func SerializeSQLiteDB(db *SQLite, m *TuiModel) string {
+	db.CloseDatabaseReference()
+	source, err := os.ReadFile(db.GetFileName())
 	if err != nil {
 		panic(err)
 	}
@@ -21,14 +51,13 @@ func (m *TuiModel) Serialize() string {
 	if err != nil {
 		log.Fatal(err)
 	}
-	m.Table.Database.SetDatabaseReference(m.Table.Database.GetFileName())
-
+	db.SetDatabaseReference(db.GetFileName())
 	return newFileName
 }
 
-func (m *TuiModel) SerializeOverwrite() {
-	m.Table.Database.CloseDatabaseReference()
-	source, err := os.ReadFile(m.Table.Database.GetFileName())
+func SerializeOverwrite(db *SQLite, m *TuiModel) {
+	db.CloseDatabaseReference()
+	source, err := os.ReadFile(db.GetFileName())
 	if err != nil {
 		panic(err)
 	}
@@ -37,5 +66,5 @@ func (m *TuiModel) SerializeOverwrite() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	m.Table.Database.SetDatabaseReference(m.Table.Database.GetFileName())
+	db.SetDatabaseReference(db.GetFileName())
 }

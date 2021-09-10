@@ -11,19 +11,6 @@ const (
 	getTableNamesQuery = "SELECT name FROM sqlite_master WHERE type='table'"
 )
 
-var (
-	inputBlacklist = []string{
-		"alt+[",
-		"up",
-		"down",
-		"tab",
-		"end",
-		"home",
-		"pgdown",
-		"pgup",
-	}
-)
-
 // handleMouseEvents does that
 func handleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
 	switch msg.Type {
@@ -69,10 +56,8 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 		m.textInput.BlinkSpeed = time.Second
 		m.textInput.SetCursorMode(CursorBlink)
 
-		{ // race condition here on debug mode TODO
-			m.tableStyle = m.GetBaseStyle()
-			m.SetViewSlices()
-		}
+		m.tableStyle = m.GetBaseStyle()
+		m.SetViewSlices()
 	} else {
 		m.viewport.Width = msg.Width
 		m.viewport.Height = msg.Height - verticalMargins
@@ -91,17 +76,15 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		str string
 		input string
 		min int
-		first string
-		last string
 		val string
 	)
 	str = msg.String()
 	input = m.textInput.Value()
-	if input != "" && m.textInput.Cursor() < len(input) - 1 {
+	if input != "" && m.textInput.Cursor() <= len(input) - 1 {
 		min = Max(m.textInput.Cursor(), 0)
 		min = Min(min, len(input) - 1)
-		first = input[:min]
-		last = input[min:]
+		first := input[:min]
+		last := input[min:]
 		val = first + str + last
 	} else {
 		val = input + str
@@ -110,11 +93,21 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	cw := m.CellWidth()
 
 	if m.editModeEnabled { // handle edit mode
-		handleEditMode(m, str, first, last, input, val)
+		handleEditMode(m, str, input, val)
 		return
 	}
 
 	switch str {
+	case "pgdown":
+		for i := 0; i < m.viewport.Height; i++ {
+			scrollDown(m)
+		}
+		break
+	case "pgup":
+		for i := 0; i < m.viewport.Height; i++ {
+			scrollUp(m)
+		}
+		break
 	case "r": // redo
 		if len(m.RedoStack) > 0 { // do this after you get undo working, basically just the same thing reversed
 			// handle undo

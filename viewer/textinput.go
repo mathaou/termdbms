@@ -154,12 +154,12 @@ type TextInputModel struct {
 
 // NewModel creates a new model with default settings.
 func NewModel() TextInputModel {
-	return TextInputModel{
+	m := TextInputModel{
 		Prompt:           "> ",
 		BlinkSpeed:       defaultBlinkSpeed,
 		EchoCharacter:    '*',
 		CharLimit:        0,
-		PlaceholderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("240")),
+		PlaceholderStyle: lipgloss.NewStyle(),
 
 		id:         nextID(),
 		value:      nil,
@@ -172,6 +172,12 @@ func NewModel() TextInputModel {
 			ctx: context.Background(),
 		},
 	}
+
+	if !Ascii {
+		m.PlaceholderStyle = m.PlaceholderStyle.Foreground(lipgloss.Color("240"))
+	}
+
+	return m
 }
 
 // SetValue sets the value of the text input.
@@ -694,7 +700,11 @@ func (m TextInputModel) View() string {
 	pos := max(0, m.pos-m.offset)
 	v := styleText(m.echoTransform(string(value[:pos])))
 
+	// TODO ascii terminal styling
 	if pos < len(value) {
+		if Ascii {
+			v += "¦"
+		}
 		v += m.cursorView(m.echoTransform(string(value[pos]))) // cursor and text under it
 		v += styleText(m.echoTransform(string(value[pos+1:]))) // text after cursor
 	} else {
@@ -741,7 +751,12 @@ func (m TextInputModel) cursorView(v string) string {
 	if m.blink {
 		return m.TextStyle.Render(v)
 	}
-	return m.CursorStyle.Inline(true).Reverse(true).Render(v)
+	s := m.CursorStyle.Inline(true)
+	if !Ascii {
+		s = s.Reverse(true)
+	}
+
+	return s.Render(v)
 }
 
 // blinkCmd is an internal command used to manage cursor blinking.

@@ -145,14 +145,14 @@ func (m *TuiModel) CopyMap() (to map[string]interface{}) {
 			// golang wizardry
 			columns := make([]interface{}, len(columnNames))
 
-			for i, _ := range columns {
+			for i := range columns {
 				columns[i] = copyValues[columnNames[i]]
 			}
 
 			for i, colName := range columnNames {
 				val := columns[i].([]interface{})
 				copy := make([]interface{}, len(val))
-				for k, _ := range val {
+				for k := range val {
 					copy[k] = val[k]
 				}
 				columnValues[colName] = append(columnValues[colName], copy)

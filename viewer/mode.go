@@ -5,8 +5,19 @@ import (
 	"os"
 )
 
+var (
+	inputBlacklist = []string{
+		"up",
+		"down",
+		"tab",
+		"pgdown",
+		"pgup",
+	}
+)
+
 // handleEditMode implementation is kind of jank, but we can clean it up later
-func handleEditMode(m *TuiModel, str, first, last, input, val string) {
+func handleEditMode(m *TuiModel, str, input, val string) {
+	inputLen := len(input)
 	if str == "esc" {
 		m.textInput.SetValue("")
 		return
@@ -18,15 +29,23 @@ func handleEditMode(m *TuiModel, str, first, last, input, val string) {
 		}
 	}
 
-	if str == "left" {
+	if str == "home" {
+		m.textInput.setCursor(0)
+	} else if str == "end" {
+		if len(val) > 0 {
+			m.textInput.setCursor(len(val) - 1)
+		}
+	} else if str == "left" {
 		cursorPosition := m.textInput.Cursor()
 
-		if cursorPosition == m.textInput.offset {
+		if cursorPosition == m.textInput.offset && cursorPosition != 0 {
 			m.textInput.offset--
 			m.textInput.offsetRight--
 		}
 
-		m.textInput.SetCursor(cursorPosition - 1)
+		if cursorPosition != 0 {
+			m.textInput.SetCursor(cursorPosition - 1)
+		}
 	} else if str == "right" {
 		cursorPosition := m.textInput.Cursor()
 
@@ -38,13 +57,13 @@ func handleEditMode(m *TuiModel, str, first, last, input, val string) {
 		m.textInput.setCursor(cursorPosition + 1)
 	} else if str == "backspace" {
 		cursor := m.textInput.Cursor()
-		if cursor == len(input) && len(input) > 0 {
-			m.textInput.SetValue(input[0 : len(input)-1])
+		if cursor == inputLen && inputLen > 0 {
+			m.textInput.SetValue(input[0 : inputLen-1])
 		} else if cursor > 0 {
 			min := Max(m.textInput.Cursor(), 0)
-			min = Min(min, len(input)-1)
-			first = input[:min-1]
-			last = input[min:]
+			min = Min(min, inputLen-1)
+			first := input[:min-1]
+			last := input[min:]
 			m.textInput.SetValue(first + last)
 			m.textInput.SetCursor(m.textInput.Cursor() - 1)
 		}
@@ -56,14 +75,22 @@ func handleEditMode(m *TuiModel, str, first, last, input, val string) {
 		} else if input == ":s" { // saves copy, default filename + :s _____ will save with that filename in cwd
 			m.editModeEnabled = false
 			m.textInput.SetValue("")
-			newFileName := m.Serialize()
-			m.DisplayMessage(fmt.Sprintf("Wrote copy of database to filepath %s.", newFileName))
+			newFileName, err := m.Serialize()
+			if err != nil {
+				m.DisplayMessage(fmt.Sprintf("%v", err))
+			} else {
+				m.DisplayMessage(fmt.Sprintf("Wrote copy of database to filepath %s.", newFileName))
+			}
 			return
 		} else if input == ":s!" { // overwrites original - should add confirmation dialog!
 			m.editModeEnabled = false
 			m.textInput.SetValue("")
-			m.SerializeOverwrite()
-			m.DisplayMessage("Overwrote original database with changes.")
+			err := m.SerializeOverwrite()
+			if err != nil {
+				m.DisplayMessage(fmt.Sprintf("%v", err))
+			} else {
+				m.DisplayMessage("Overwrite original database file with changes.")
+			}
 			return
 		} else if input == ":h" {
 			m.helpDisplay = true
@@ -73,7 +100,8 @@ func handleEditMode(m *TuiModel, str, first, last, input, val string) {
 
 		raw, _, _ := m.GetSelectedOption()
 		if *raw == input {
-			// no update
+			m.editModeEnabled = false
+			m.textInput.SetValue("")
 			return
 		}
 
@@ -88,19 +116,26 @@ func handleEditMode(m *TuiModel, str, first, last, input, val string) {
 			m.UndoStack = m.UndoStack[1:] // need some more complicated logic to handle dereferencing
 		}
 
-		deepCopy := m.CopyMap()
-		// THE GLOBALIST TAKEOVER
-		deepState := TableState{
-			Database: &SQLite{
-				FileName: m.Table.Database.GetFileName(),
-				db:       nil,
-			},
-			Data: deepCopy,
+		switch m.Table.Database.(type) {
+		case *SQLite:
+			deepCopy := m.CopyMap()
+			// THE GLOBALIST TAKEOVER
+			deepState := TableState{
+				Database: &SQLite{
+					FileName: m.Table.Database.GetFileName(),
+					db:       nil,
+				},
+				Data: deepCopy,
+			}
+			m.UndoStack = append(m.UndoStack, deepState)
+			dst, _, _ := CopyFile(m.Table.Database.GetFileName())
+			m.Table.Database.CloseDatabaseReference()
+			m.Table.Database.SetDatabaseReference(dst)
+			break
+		default:
+			break
 		}
-		m.UndoStack = append(m.UndoStack, deepState)
-		dst, _, _ := CopyFile(m.Table.Database.GetFileName())
-		m.Table.Database.CloseDatabaseReference()
-		m.Table.Database.SetDatabaseReference(dst)
+
 		original, _, _ := m.GetSelectedOption()
 		m.ProcessSqlQueryForDatabaseType(&Update{
 			Update: GetInterfaceFromString(input, original),
@@ -108,6 +143,7 @@ func handleEditMode(m *TuiModel, str, first, last, input, val string) {
 
 		m.editModeEnabled = false
 		m.textInput.SetValue("")
+
 		*raw = input
 	} else {
 		prePos := m.textInput.Cursor()
@@ -122,6 +158,4 @@ func handleEditMode(m *TuiModel, str, first, last, input, val string) {
 		}
 		m.textInput.setCursor(prePos + 1)
 	}
-
-	return
 }
