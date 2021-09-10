@@ -16,13 +16,16 @@ var (
 	footerHeight   = 1
 	maxInputLength int
 	headerStyle    lipgloss.Style
+	headerBottomStyle lipgloss.Style
 	InitialModel   *TuiModel
 )
 
 const (
-	highlight                 = "#0168B3" // change to whatever
-	headerForeground          = "#231F20"
-	headerBorderBackground    = "#AAAAAA"
+	highlight                 = "#AA759F" // change to whatever
+	headerBackground          = "#437489"
+	headerBorderBackground    = "#505050"
+	headerForeground          = "#F6F7EB"
+	headerBottomColor         = "#6A9FB5"
 	maximumRendererCharacters = math.MaxInt32
 )
 
@@ -41,9 +44,9 @@ type TuiModel struct {
 	TableSelection     int
 	InitialFileName    string // used if saving destructively
 	ready              bool
-	renderSelection    bool   // render mode
-	helpDisplay        bool   // help display mode
-	editModeEnabled    bool   // edit mode
+	renderSelection    bool // render mode
+	helpDisplay        bool // help display mode
+	editModeEnabled    bool // edit mode
 	formatModeEnabled  bool
 	selectionText      string
 	preScrollYOffset   int
@@ -65,9 +68,14 @@ type TuiModel struct {
 // Init currently doesn't do anything but necessary for interface adherence
 func (m TuiModel) Init() tea.Cmd {
 	headerStyle = lipgloss.NewStyle()
+	headerBottomStyle = lipgloss.NewStyle().
+		Align(lipgloss.Center)
 
 	if !Ascii {
 		headerStyle = headerStyle.Faint(true)
+		headerBottomStyle = headerBottomStyle.
+			Foreground(lipgloss.Color(headerBottomColor)).
+			Faint(true)
 	}
 
 	return nil
@@ -153,7 +161,8 @@ func (m TuiModel) View() string {
 
 		if !Ascii {
 			style = style.Foreground(lipgloss.Color(headerForeground)).
-				Background(lipgloss.Color(headerBorderBackground))
+				BorderBackground(lipgloss.Color(headerBorderBackground)).
+				Background(lipgloss.Color(headerBackground))
 		}
 		headers := m.TableHeadersSlice
 		for i, d := range headers { // write all headers
@@ -176,20 +185,16 @@ func (m TuiModel) View() string {
 				headerTop = fmt.Sprintf("%s (%d/%d) - %d record(s) + %d column(s)",
 					m.GetSchemaName(),
 					m.TableSelection,
-					len(m.TableHeaders),                // look at how headers get rendered to get accurate record number
+					len(m.TableHeaders), // look at how headers get rendered to get accurate record number
 					len(m.GetColumnData()),
 					len(m.GetHeaders())) // this will need to be refactored when filters get added
-
 				headerTop += strings.Repeat(" ", m.viewport.Width-len(headerTop))
 			}
 
-			//strings.Repeat(" ", m.viewport.Width-len(headerTop))
 
 			// separator
-			headerBot := strings.Repeat(lipgloss.NewStyle().
-				Align(lipgloss.Center).
-				Faint(true).
-				Render("-"),
+			headerBot := strings.Repeat(headerBottomStyle.
+				Render("¯"),
 				m.viewport.Width)
 			headerMid := strings.Join(builder, "")
 			headerMid = headerMid + strings.Repeat(" ", m.viewport.Width)
@@ -237,6 +242,7 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 		fmt.Printf("%v", err)
 		os.Exit(1)
 	}
+
 	defer rows.Close()
 
 	// for each schema

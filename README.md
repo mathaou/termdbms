@@ -71,7 +71,7 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
 ##### Help:
 	-p	database path (absolute)
     -d  specifies which database driver to use (sqlite/mysql)
-    -a  enable ascii mode for terminals that are unable to display ANSI escape sequences
+    -a  enable ascii mode
 	-h	prints this message
 ##### Controls:
 ###### MOUSE

@@ -49,9 +49,6 @@ func (m *TuiModel) NumHeaders() int {
 // CellWidth gets the current cell width for schema
 func (m *TuiModel) CellWidth() int {
 	h := m.NumHeaders()
-	if h == 0 {
-		println(h)
-	}
 	return m.viewport.Width / h + 1
 }
 
@@ -65,10 +62,9 @@ func (m *TuiModel) GetBaseStyle() lipgloss.Style {
 		Padding(0).
 		Margin(0)
 
-	if m.borderToggle {
-		s = s.BorderRight(true).
-			BorderLeft(true).
-			BorderStyle(lipgloss.RoundedBorder())
+	if m.borderToggle && !Ascii {
+		s = s.BorderLeft(true).
+			BorderStyle(lipgloss.NormalBorder())
 	}
 
 	return s
