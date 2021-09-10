@@ -8,6 +8,7 @@ import (
 var (
 	dbMutex sync.Mutex
 	dbs     map[string]*sql.DB
+	DriverString string
 )
 
 type Database interface {
@@ -45,7 +46,7 @@ func GetDatabaseForFile(database string) *sql.DB {
 	if db, ok := dbs[database]; ok {
 		return db
 	}
-	db, err := sql.Open("sqlite", database)
+	db, err := sql.Open(DriverString, database)
 	if err != nil {
 		panic(err)
 	}

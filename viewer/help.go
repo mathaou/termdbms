@@ -2,8 +2,9 @@ package viewer
 
 func GetHelpText() (help string) {
 	help = "Help:\n" +
-		"\t-p\tdatabase path (absolute)\n" +
+		"\tusage: termdbms [database_path] [-h|-d]\n" +
 		"\t-h\tprints this message\n" +
+		"\t-d\tspecfies the database driver to use. Defaults to sqlite. Also supports mysql." +
 		"Controls:\n" +
 		"MOUSE\n" +
 		"\tScroll up + down to navigate table\n" +

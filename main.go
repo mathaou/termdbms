@@ -11,12 +11,20 @@ import (
 	. "termdbms/viewer"
 )
 
+type DatabaseType string
+
 const (
 	debugPath = "" // set to whatever hardcoded path for testing
 )
 
+const (
+	DatabaseSQLite DatabaseType = "sqlite"
+	DatabaseMySQL  DatabaseType = "mysql"
+)
+
 func main() {
 	var path string
+	var databaseType string
 	var help bool
 
 	debug := debugPath != ""
@@ -38,16 +46,20 @@ func main() {
 		}
 
 		// flags declaration using flag package
-		flag.StringVar(&path, "p", "", "Specify username. Default is root")
-		flag.BoolVar(&help, "h", false, "Specify pass. Default is password")
+		flag.StringVar(&databaseType, "d", string(DatabaseSQLite), "Specifies the SQL driver to use. Defaults to SQLite.")
+		flag.BoolVar(&help, "h", false, "Prints the help message.")
 
 		flag.Parse()
 
-		if flag.NFlag() == 0 {
-			fmt.Printf("ERROR: Path to database file must be given with the -p flag.\n")
+		args := flag.Args()
+
+		if len(args) == 0 {
+			fmt.Printf("ERROR: no path for database.\n")
 			flag.Usage()
 			os.Exit(1)
 		}
+
+		path = args[0]
 
 		if help {
 			flag.Usage()
@@ -59,6 +71,14 @@ func main() {
 			flag.Usage()
 			os.Exit(1)
 		}
+
+		if databaseType != string(DatabaseMySQL) &&
+			databaseType != string(DatabaseSQLite) {
+			fmt.Printf("Invalid database driver specified: %s", databaseType)
+			os.Exit(1)
+		}
+
+		DriverString = databaseType
 	}
 
 	var c *sql.Rows
