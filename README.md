@@ -89,7 +89,7 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
     [C] to expand column
     [P] in selection mode to write cell to file
 	[ESC] to exit full screen view, or to enter edit mode
-###### EDIT MODE (cosmetic until serialization is working)
+###### EDIT MODE
     [ESC] to enter edit mode with no pre-loaded text input from selection
     When a cell is selected, press [:] to enter edit mode with selection pre-loaded
     The text field in the header will be populated with the selected cells text. Modifications can be made freely.
