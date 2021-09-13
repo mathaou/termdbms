@@ -173,6 +173,9 @@ func assembleTable(m *TuiModel) string {
 	if m.renderSelection {
 		return displaySelection(m)
 	}
+	if m.formatModeEnabled {
+		return displayFormatBuffer(m)
+	}
 
 	return displayTable(m)
 }

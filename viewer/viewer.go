@@ -12,21 +12,47 @@ import (
 )
 
 var (
-	headerHeight   = 3
-	footerHeight   = 1
-	maxInputLength int
-	headerStyle    lipgloss.Style
+	headerHeight      = 3
+	footerHeight      = 1
+	maxInputLength    int
+	headerStyle       lipgloss.Style
+	footerStyle       lipgloss.Style
 	headerBottomStyle lipgloss.Style
-	InitialModel   *TuiModel
+	InitialModel      *TuiModel
 )
 
 const (
-	highlight                 = "#AA759F" // change to whatever
-	headerBackground          = "#437489"
-	headerBorderBackground    = "#505050"
-	headerForeground          = "#F6F7EB"
-	headerBottomColor         = "#6A9FB5"
 	maximumRendererCharacters = math.MaxInt32
+)
+
+var (
+	highlight = func() string {
+		return ThemesMap[SelectedTheme][highlightKey]
+	} // change to whatever
+	headerBackground = func() string {
+		return ThemesMap[SelectedTheme][headerBackgroundKey]
+	}
+	headerBorderBackground = func() string {
+		return ThemesMap[SelectedTheme][headerBorderBackgroundKey]
+	}
+	headerForeground = func() string {
+		return ThemesMap[SelectedTheme][headerForegroundKey]
+	}
+	footerForegroundColor = func() string {
+		return ThemesMap[SelectedTheme][footerForegroundColorKey]
+	}
+	headerBottomColor = func() string {
+		return ThemesMap[SelectedTheme][headerBottomColorKey]
+	}
+	headerTopForegroundColor = func() string {
+		return ThemesMap[SelectedTheme][headerTopForegroundColorKey]
+	}
+	borderColor = func() string {
+		return ThemesMap[SelectedTheme][borderColorKey]
+	}
+	textColor = func() string {
+		return ThemesMap[SelectedTheme][textColorKey]
+	}
 )
 
 type TableState struct {
@@ -58,25 +84,36 @@ type TuiModel struct {
 	tableStyle         lipgloss.Style
 	mouseEvent         tea.MouseEvent
 	textInput          TextInputModel
+	formatInput        TextInputModel
 	UndoStack          []TableState
 	RedoStack          []TableState
 	err                error
+}
+
+func setStyles() {
+	headerStyle = lipgloss.NewStyle()
+	footerStyle = lipgloss.NewStyle()
+
+	headerBottomStyle = lipgloss.NewStyle().
+		Align(lipgloss.Center)
+
+	if !Ascii {
+		headerStyle = headerStyle.
+			Foreground(lipgloss.Color(headerTopForegroundColor()))
+
+		footerStyle = footerStyle.
+			Foreground(lipgloss.Color(footerForegroundColor()))
+
+		headerBottomStyle = headerBottomStyle.
+			Foreground(lipgloss.Color(headerBottomColor()))
+	}
 }
 
 // INIT UPDATE AND RENDER
 
 // Init currently doesn't do anything but necessary for interface adherence
 func (m TuiModel) Init() tea.Cmd {
-	headerStyle = lipgloss.NewStyle()
-	headerBottomStyle = lipgloss.NewStyle().
-		Align(lipgloss.Center)
-
-	if !Ascii {
-		headerStyle = headerStyle.Faint(true)
-		headerBottomStyle = headerBottomStyle.
-			Foreground(lipgloss.Color(headerBottomColor)).
-			Faint(true)
-	}
+	setStyles()
 
 	return nil
 }
@@ -156,13 +193,14 @@ func (m TuiModel) View() string {
 			builder []string
 		)
 
-		style := m.GetBaseStyle().
-			Width(m.CellWidth())
+		style := m.GetBaseStyle()
 
 		if !Ascii {
-			style = style.Foreground(lipgloss.Color(headerForeground)).
-				BorderBackground(lipgloss.Color(headerBorderBackground)).
-				Background(lipgloss.Color(headerBackground))
+			// for column headers
+			style = style.Foreground(lipgloss.Color(headerForeground())).
+				BorderBackground(lipgloss.Color(headerBorderBackground())).
+				Background(lipgloss.Color(headerBackground())).
+				PaddingLeft(1)
 		}
 		headers := m.TableHeadersSlice
 		for i, d := range headers { // write all headers
@@ -179,7 +217,7 @@ func (m TuiModel) View() string {
 			// schema name
 			var headerTop string
 
-			if m.editModeEnabled {
+			if m.editModeEnabled || m.formatModeEnabled {
 				headerTop = m.textInput.View()
 			} else {
 				headerTop = fmt.Sprintf("%s (%d/%d) - %d record(s) + %d column(s)",
@@ -190,7 +228,6 @@ func (m TuiModel) View() string {
 					len(m.GetHeaders())) // this will need to be refactored when filters get added
 				headerTop += strings.Repeat(" ", m.viewport.Width-len(headerTop))
 			}
-
 
 			// separator
 			headerBot := strings.Repeat(headerBottomStyle.
@@ -209,13 +246,11 @@ func (m TuiModel) View() string {
 
 	// footer (shows row/col for now)
 	go func(f *string) {
-		{
-			footer := fmt.Sprintf(" %d, %d ", m.GetRow()+m.viewport.YOffset, m.GetColumn()+m.scrollXOffset)
-			undoRedoInfo := fmt.Sprintf("undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
-			gapSize := m.viewport.Width - lipgloss.Width(footer) - lipgloss.Width(undoRedoInfo) - 2
-			footer = headerStyle.Render(undoRedoInfo) + "├" + strings.Repeat("─", gapSize) + "┤" + headerStyle.Render(footer)
-			*f = footer
-		}
+		footer := fmt.Sprintf(" %d, %d ", m.GetRow()+m.viewport.YOffset, m.GetColumn()+m.scrollXOffset)
+		undoRedoInfo := fmt.Sprintf("undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
+		gapSize := m.viewport.Width - lipgloss.Width(footer) - lipgloss.Width(undoRedoInfo) - 2
+		footer = footerStyle.Render(undoRedoInfo) + "├" + strings.Repeat("─", gapSize) + "┤" + footerStyle.Render(footer)
+		*f = footer
 
 		done <- true
 	}(&footer)

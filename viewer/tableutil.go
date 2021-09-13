@@ -26,6 +26,7 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 		renderSelection: false,
 		editModeEnabled: false,
 		textInput:       NewModel(),
+		formatInput:     NewModel(),
 	}
 }
 
@@ -49,22 +50,21 @@ func (m *TuiModel) NumHeaders() int {
 // CellWidth gets the current cell width for schema
 func (m *TuiModel) CellWidth() int {
 	h := m.NumHeaders()
-	return m.viewport.Width / h + 1
+	return m.viewport.Width / h
 }
 
 // GetBaseStyle returns a new style that is used everywhere
 func (m *TuiModel) GetBaseStyle() lipgloss.Style {
 	cw := m.CellWidth()
 	s := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(textColor())).
 		Width(cw).
-		MaxWidth(cw).
-		Align(lipgloss.Left).
-		Padding(0).
-		Margin(0)
+		Align(lipgloss.Left)
 
 	if m.borderToggle && !Ascii {
 		s = s.BorderLeft(true).
-			BorderStyle(lipgloss.NormalBorder())
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color(borderColor()))
 	}
 
 	return s

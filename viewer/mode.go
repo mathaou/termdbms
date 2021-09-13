@@ -63,6 +63,10 @@ func handleEditMode(m *TuiModel, str, input, val string) {
 			min := Max(m.textInput.Cursor(), 0)
 			min = Min(min, inputLen-1)
 			first := input[:min-1]
+			lastRune := first[len(first) - 1]
+			if lastRune > 127 {
+				first = first[0:len(first) - 1]
+			}
 			last := input[min:]
 			m.textInput.SetValue(first + last)
 			m.textInput.SetCursor(m.textInput.Cursor() - 1)

@@ -71,13 +71,15 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 }
 
 // handleKeyboardEvents does that
-func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
+func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	var (
 		str string
 		input string
 		min int
 		val string
+		cmd tea.Cmd
 	)
+
 	str = msg.String()
 	input = m.textInput.Value()
 	if input != "" && m.textInput.Cursor() <= len(input) - 1 {
@@ -94,10 +96,14 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 
 	if m.editModeEnabled { // handle edit mode
 		handleEditMode(m, str, input, val)
-		return
+		return cmd
 	}
 
 	switch str {
+	case "t":
+		SelectedTheme = (SelectedTheme + 1) % len(ValidThemes)
+		setStyles()
+		break
 	case "pgdown":
 		for i := 0; i < m.viewport.Height; i++ {
 			scrollDown(m)
@@ -163,8 +169,12 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		str := GetStringRepresentationOfInterface(*raw)
 		if lipgloss.Width(str + m.textInput.Prompt) > m.viewport.Width {
 			m.formatModeEnabled = true
+			m.editModeEnabled = false
+			m.selectionText = str
+			cmd = m.formatInput.Focus()
+		} else {
+			m.textInput.SetValue(str)
 		}
-		m.textInput.SetValue(str)
 		break
 	case "p":
 		if m.renderSelection {
@@ -268,7 +278,15 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		scrollDown(m)
 		break
 	case "esc": // exit full screen cell value view, also enabled edit mode
-		if !m.renderSelection && !m.helpDisplay {
+		if m.formatModeEnabled {
+			if m.formatInput.Focused() {
+				cmd = m.textInput.Focus()
+			} else if m.textInput.Focused() {
+				cmd = m.formatInput.Focus()
+			}
+			break
+		}
+	    if !m.renderSelection && !m.helpDisplay {
 			m.editModeEnabled = true
 			break
 		}
@@ -280,4 +298,6 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		m.viewport.YOffset = m.preScrollYOffset
 		break
 	}
+
+	return cmd
 }

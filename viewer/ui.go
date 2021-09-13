@@ -124,12 +124,16 @@ func displayTable(m *TuiModel) string {
 
 		columnValues := m.DataSlices[columnName]
 		for r, val := range columnValues {
-			base := m.GetBaseStyle()
+			base := m.GetBaseStyle().
+				UnsetBorderLeft().
+				UnsetBorderStyle().
+				UnsetBorderForeground()
 			s := GetStringRepresentationOfInterface(val)
+			s = " " + s
 			// handle highlighting
 			if c == m.GetColumn() && r == m.GetRow() {
 				if !Ascii {
-					base.Foreground(lipgloss.Color(highlight))
+					base.Foreground(lipgloss.Color(highlight()))
 				} else if Ascii {
 					s = "|" + s
 				}
@@ -138,16 +142,22 @@ func displayTable(m *TuiModel) string {
 			rowBuilder = append(rowBuilder, base.Render(TruncateIfApplicable(m, s)))
 		}
 
-		for len(rowBuilder) < m.viewport.Height {
+		for len(rowBuilder) < m.viewport.Height { // fix spacing issues
 			rowBuilder = append(rowBuilder, "")
 		}
 
+		column := lipgloss.JoinVertical(lipgloss.Left, rowBuilder...)
 		// get a list of columns
-		builder = append(builder, lipgloss.JoinVertical(lipgloss.Left, rowBuilder...))
+		builder = append(builder, m.GetBaseStyle().Render(column))
 	}
 
 	// join them into rows
 	return lipgloss.JoinHorizontal(lipgloss.Left, builder...)
+}
+
+func displayFormatBuffer(m *TuiModel) string {
+	m.formatInput.SetValue(m.selectionText)
+	return m.formatInput.View()
 }
 
 // displaySelection does that or writes it to a file if the selection is over a limit
