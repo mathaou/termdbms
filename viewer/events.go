@@ -25,7 +25,7 @@ func handleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
 		}
 		break
 	case tea.MouseLeft:
-		if !m.editModeEnabled {
+		if !m.editModeEnabled && !m.formatModeEnabled {
 			selectOption(m)
 		}
 		break
@@ -51,10 +51,10 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 		m.mouseEvent.Y = headerHeight
 
 		maxInputLength = m.viewport.Width
-		m.textInput.CharLimit = -1
-		m.textInput.Width = maxInputLength - lipgloss.Width(m.textInput.Prompt)
-		m.textInput.BlinkSpeed = time.Second
-		m.textInput.SetCursorMode(CursorBlink)
+		m.textInput.Model.CharLimit = -1
+		m.textInput.Model.Width = maxInputLength - lipgloss.Width(m.textInput.Model.Prompt)
+		m.textInput.Model.BlinkSpeed = time.Second
+		m.textInput.Model.SetCursorMode(CursorBlink)
 
 		m.tableStyle = m.GetBaseStyle()
 		m.SetViewSlices()
@@ -73,18 +73,17 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 // handleKeyboardEvents does that
 func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	var (
-		str string
+		str   string
 		input string
-		min int
-		val string
-		cmd tea.Cmd
+		val   string
+		cmd   tea.Cmd
 	)
 
 	str = msg.String()
-	input = m.textInput.Value()
-	if input != "" && m.textInput.Cursor() <= len(input) - 1 {
-		min = Max(m.textInput.Cursor(), 0)
-		min = Min(min, len(input) - 1)
+	input = m.textInput.Model.Value()
+	if input != "" && m.textInput.Model.Cursor() <= len(input)-1 {
+		min := Max(m.textInput.Model.Cursor(), 0)
+		min = Min(min, len(input)-1)
 		first := input[:min]
 		last := input[min:]
 		val = first + str + last
@@ -97,8 +96,27 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	if m.editModeEnabled { // handle edit mode
 		handleEditMode(m, str, input, val)
 		return cmd
+	} else if m.formatModeEnabled {
+		if str == "esc" {
+			if m.textInput.Model.Focused() {
+				cmd = m.formatInput.Model.Focus()
+				m.textInput.Model.Blur()
+			} else {
+				cmd = m.textInput.Model.Focus()
+				m.formatInput.Model.Blur()
+			}
+		} else {
+			if m.textInput.Model.focus {
+				handleEditMode(m, str, input, val)
+			} else {
+				handleFormatMode(m, str, input, val)
+			}
+		}
+
+		return cmd
 	}
 
+	// GLOBAL COMMANDS
 	switch str {
 	case "t":
 		SelectedTheme = (SelectedTheme + 1) % len(ValidThemes)
@@ -167,13 +185,16 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		}
 
 		str := GetStringRepresentationOfInterface(*raw)
-		if lipgloss.Width(str + m.textInput.Prompt) > m.viewport.Width {
+		if lipgloss.Width(str+m.textInput.Model.Prompt) > m.viewport.Width {
 			m.formatModeEnabled = true
 			m.editModeEnabled = false
 			m.selectionText = str
-			cmd = m.formatInput.Focus()
+			m.formatInput.Model.focus = true
+			m.textInput.Model.focus = false
 		} else {
-			m.textInput.SetValue(str)
+			m.textInput.Model.SetValue(str)
+			m.formatInput.Model.focus = false
+			m.textInput.Model.focus = true
 		}
 		break
 	case "p":
@@ -247,12 +268,12 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	case "d": // manual keyboard control for column ++
 		col := m.GetColumn()
 		cols := len(m.TableHeadersSlice) - 1
-		if (m.mouseEvent.X - m.viewport.Width) <= cw && m.GetColumn() < cols { // within tolerances
+		if (m.mouseEvent.X-m.viewport.Width) <= cw && m.GetColumn() < cols { // within tolerances
 			m.mouseEvent.X += cw
 		} else if col == cols {
 			go Program.Send(tea.KeyMsg{
-				Type:  tea.KeyRight,
-				Alt:   false,
+				Type: tea.KeyRight,
+				Alt:  false,
 			})
 		}
 		break
@@ -261,8 +282,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 			m.mouseEvent.X -= cw
 		} else if m.GetColumn() == 0 {
 			go Program.Send(tea.KeyMsg{
-				Type:  tea.KeyLeft,
-				Alt:   false,
+				Type: tea.KeyLeft,
+				Alt:  false,
 			})
 		}
 		break
@@ -278,15 +299,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		scrollDown(m)
 		break
 	case "esc": // exit full screen cell value view, also enabled edit mode
-		if m.formatModeEnabled {
-			if m.formatInput.Focused() {
-				cmd = m.textInput.Focus()
-			} else if m.textInput.Focused() {
-				cmd = m.formatInput.Focus()
-			}
-			break
-		}
-	    if !m.renderSelection && !m.helpDisplay {
+		if !m.renderSelection && !m.helpDisplay {
 			m.editModeEnabled = true
 			break
 		}

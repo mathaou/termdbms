@@ -186,6 +186,8 @@ func getScrollDownMaxForSelection(m *TuiModel) int {
 		conv, _ := formatJson(m.selectionText)
 		lines := SplitLines(conv)
 		max = len(lines)
+	} else if m.formatModeEnabled {
+		max = len(SplitLines(displayFormatBuffer(m)))
 	} else {
 		return len(m.GetColumnData())
 	}

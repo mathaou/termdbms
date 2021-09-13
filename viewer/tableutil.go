@@ -9,7 +9,7 @@ var maxHeaders int
 
 // GetNewModel returns a TuiModel struct with some fields set
 func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
-	return TuiModel{
+	m := TuiModel{
 		Table: TableState{
 			Database: &SQLite{
 				FileName: baseFileName,
@@ -25,9 +25,17 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 		ready:           false,
 		renderSelection: false,
 		editModeEnabled: false,
-		textInput:       NewModel(),
-		formatInput:     NewModel(),
+		textInput: LineEdit{
+			Model:         NewModel(),
+			EnterBehavior: HeaderLineEditEnterBehavior,
+		},
+		formatInput: LineEdit{
+			Model:         NewModel(),
+			EnterBehavior: BodyLineEditEnterBehavior,
+		},
 	}
+	m.formatInput.Model.Prompt = ""
+	return m
 }
 
 // NumHeaders gets the number of columns for the current schema
@@ -104,16 +112,13 @@ func (m *TuiModel) SetViewSlices() {
 	headersLen := len(headers)
 
 	if headersLen > maxHeaders {
-		headers = headers[m.scrollXOffset : maxHeaders+m.scrollXOffset - 1]
+		headers = headers[m.scrollXOffset : maxHeaders+m.scrollXOffset-1]
 	}
 
 	for _, columnName := range headers {
 		interfaceValues := m.GetSchemaData()[columnName]
 		if len(interfaceValues) >= m.viewport.Height {
 			min := Min(m.viewport.YOffset, len(interfaceValues)-m.viewport.Height)
-			if min < 0 || m.viewport.Height+min < 0 { // sometimes negative due to race condition... TODO
-				continue
-			}
 			m.DataSlices[columnName] = interfaceValues[min : m.viewport.Height+min]
 		} else {
 			m.DataSlices[columnName] = interfaceValues
@@ -163,4 +168,12 @@ func (m *TuiModel) DisplayMessage(msg string) {
 	m.selectionText = msg
 	m.editModeEnabled = false
 	m.renderSelection = true
+}
+
+func (m *TuiModel) GetSelectedLineEdit() *LineEdit {
+	if m.textInput.Model.Focused() {
+		return &m.textInput
+	}
+
+	return &m.formatInput
 }

@@ -83,8 +83,8 @@ type TuiModel struct {
 	viewport           viewport.Model
 	tableStyle         lipgloss.Style
 	mouseEvent         tea.MouseEvent
-	textInput          TextInputModel
-	formatInput        TextInputModel
+	textInput          LineEdit
+	formatInput        LineEdit
 	UndoStack          []TableState
 	RedoStack          []TableState
 	err                error
@@ -120,6 +120,13 @@ func (m TuiModel) Init() tea.Cmd {
 
 // Update is where all commands and whatnot get processed
 func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
+	if !m.formatModeEnabled {
+		m.formatModeEnabled = true
+		m.editModeEnabled = false
+		m.selectionText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed commodo, elit at scelerisque consequat, lectus ex semper turpis, a posuere mauris neque a odio. Nam at placerat elit. Suspendisse potenti. Nullam lorem felis, fringilla vitae commodo at, vestibulum quis lacus. Phasellus iaculis elementum enim, eu lobortis lacus imperdiet at. Praesent a hendrerit nisl. Mauris faucibus, mi non posuere porta, turpis risus posuere dolor, at tempor dolor sapien vitae eros. Ut non efficitur enim, eu pretium tortor. In et laoreet magna. Etiam dignissim viverra convallis. Suspendisse ac nibh velit. Nulla facilisis vestibulum nibh vitae venenatis. Vivamus ornare, justo hendrerit blandit ultrices, metus diam aliquet urna, et sollicitudin ante odio quis ex. Duis non luctus augue, ac fringilla eros.\n\nNunc at dolor arcu. Nullam quis velit id purus bibendum tincidunt bibendum vel nunc. Maecenas imperdiet aliquam mauris a tincidunt. Praesent faucibus sapien nec massa posuere, ac placerat enim viverra. Quisque a condimentum velit, id feugiat lectus. Vivamus iaculis magna ante. Nulla interdum tristique justo, ac blandit dolor rutrum vel. Maecenas id tristique leo.\n\nProin lobortis finibus nibh, vitae porttitor tortor. Duis rutrum, eros ac fringilla scelerisque, nisi velit tristique odio, facilisis fermentum quam enim et risus. In tempus ipsum a erat posuere, quis varius ex hendrerit. Donec suscipit nec nulla sed dictum. Aenean venenatis augue quam. In nunc leo, fringilla vel justo et, sodales tempor libero. Cras sit amet nulla vel elit aliquet facilisis ac nec leo. Quisque interdum, enim et porttitor condimentum, nunc erat efficitur orci, id mattis diam arcu porttitor urna. Ut consectetur mi eu urna gravida lacinia a vel diam. Sed posuere, ante ac scelerisque sollicitudin, nisl dolor mollis nulla, quis commodo massa eros ut neque. Nam tempus dui et est congue blandit.\n\nIn quis posuere diam, at efficitur orci. Nullam vulputate, tortor sed fringilla pretium, massa massa congue justo, quis consectetur justo sapien non odio. Praesent pulvinar non magna a mattis. Cras efficitur mauris eu pretium eleifend. Vestibulum fringilla scelerisque neque ac blandit. Ut sagittis congue tellus et viverra. Sed cursus augue id lobortis accumsan.\n\nNulla et justo eu ligula blandit volutpat. Sed cursus nunc elit, id consequat enim fringilla ac. Fusce sagittis fermentum magna at cursus. Donec metus est, vestibulum vel porttitor vitae, imperdiet non purus. Vestibulum aliquet scelerisque lobortis. Nullam sed dolor id libero interdum dignissim. Fusce porttitor id est in pretium. Donec non faucibus ipsum. Ut mattis orci tincidunt sapien commodo, quis euismod mi condimentum. Phasellus non eros felis. Etiam pellentesque ut massa id suscipit. Praesent viverra mauris in ultrices semper. Nam ante sem, sollicitudin nec mauris ut, euismod hendrerit justo. Curabitur placerat luctus lorem sit amet scelerisque. Suspendisse luctus tellus vitae felis fermentum luctus. Morbi dolor est, convallis ac ex sit amet, viverra dapibus ante."
+		m.formatInput.Model.focus = true
+		m.textInput.Model.focus = false
+	}
 	var (
 		cmd  tea.Cmd
 		cmds []tea.Cmd
@@ -146,7 +153,7 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			s != "n" {
 			break
 		}
-		if s == "ctrl+c" || (s == "q" && !m.editModeEnabled) {
+		if s == "ctrl+c" || (s == "q" && (!m.editModeEnabled && !m.formatModeEnabled)) {
 			return m, tea.Quit
 		}
 
@@ -218,7 +225,10 @@ func (m TuiModel) View() string {
 			var headerTop string
 
 			if m.editModeEnabled || m.formatModeEnabled {
-				headerTop = m.textInput.View()
+				headerTop = m.textInput.Model.View()
+				if !m.textInput.Model.Focused() {
+					headerTop = headerStyle.Copy().Faint(true).Render(headerTop)
+				}
 			} else {
 				headerTop = fmt.Sprintf("%s (%d/%d) - %d record(s) + %d column(s)",
 					m.GetSchemaName(),
@@ -227,6 +237,7 @@ func (m TuiModel) View() string {
 					len(m.GetColumnData()),
 					len(m.GetHeaders())) // this will need to be refactored when filters get added
 				headerTop += strings.Repeat(" ", m.viewport.Width-len(headerTop))
+				headerTop = headerStyle.Render(headerTop)
 			}
 
 			// separator
@@ -236,7 +247,7 @@ func (m TuiModel) View() string {
 			headerMid := strings.Join(builder, "")
 			headerMid = headerMid + strings.Repeat(" ", m.viewport.Width)
 			*h = fmt.Sprintf("%s\n%s\n%s",
-				headerStyle.Render(headerTop),
+				headerTop,
 				headerMid,
 				headerBot)
 		}
@@ -248,6 +259,13 @@ func (m TuiModel) View() string {
 	go func(f *string) {
 		footer := fmt.Sprintf(" %d, %d ", m.GetRow()+m.viewport.YOffset, m.GetColumn()+m.scrollXOffset)
 		undoRedoInfo := fmt.Sprintf("undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
+		switch m.Table.Database.(type) {
+		case *SQLite:
+			break
+		default:
+			undoRedoInfo = ""
+			break
+		}
 		gapSize := m.viewport.Width - lipgloss.Width(footer) - lipgloss.Width(undoRedoInfo) - 2
 		footer = footerStyle.Render(undoRedoInfo) + "├" + strings.Repeat("─", gapSize) + "┤" + footerStyle.Render(footer)
 		*f = footer

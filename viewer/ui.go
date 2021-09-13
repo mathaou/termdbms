@@ -11,7 +11,7 @@ import (
 
 var (
 	Program *tea.Program
-	Ascii bool
+	Ascii   bool
 )
 
 // selectOption does just that
@@ -27,8 +27,8 @@ func selectOption(m *TuiModel) {
 
 	if row <= l && l > 0 &&
 		m.mouseEvent.Y >= headerHeight &&
-		m.mouseEvent.Y < m.viewport.Height + headerHeight &&
-		m.mouseEvent.X < m.CellWidth() * (len(m.TableHeadersSlice)) {
+		m.mouseEvent.Y < m.viewport.Height+headerHeight &&
+		m.mouseEvent.X < m.CellWidth()*(len(m.TableHeadersSlice)) {
 		if conv, ok := (*raw).(string); ok {
 			if format, err := formatJson(conv); err == nil {
 				m.selectionText = format
@@ -76,6 +76,11 @@ func toggleColumn(m *TuiModel) {
 
 // scrollDown is a simple function to move the viewport down
 func scrollDown(m *TuiModel) {
+	if m.formatModeEnabled && len(getFormattedTextBuffer(m))-m.viewport.YOffset-m.viewport.Height > 0 {
+		m.viewport.YOffset++
+		return
+	}
+
 	max := getScrollDownMaxForSelection(m)
 
 	if m.viewport.YOffset < max-m.viewport.Height {
@@ -155,9 +160,35 @@ func displayTable(m *TuiModel) string {
 	return lipgloss.JoinHorizontal(lipgloss.Left, builder...)
 }
 
-func displayFormatBuffer(m *TuiModel) string {
-	m.formatInput.SetValue(m.selectionText)
-	return m.formatInput.View()
+func getFormattedTextBuffer(m *TuiModel) []string {
+	var (
+		right string
+	)
+
+	wrapper := Wrapper(m.viewport.Width, false)
+
+	margins := headerHeight - footerHeight
+	offsetMax := m.viewport.Height - margins
+	lines := SplitLines(m.selectionText)
+
+	for i, v := range lines {
+		wrap := wrapper(v)
+		right += Indent(wrap, fmt.Sprintf("%d ", i+m.viewport.YOffset), false)
+		right += "\n"
+	}
+	for i := strings.Count(right, "\n"); i < offsetMax; i++ {
+		right += "\n"
+	}
+
+	return SplitLines(right)
+}
+
+func displayFormatBuffer(m *TuiModel) string { // TODO this is wildly inefficient, rework
+	ret := strings.Join(
+		getFormattedTextBuffer(m)[m.viewport.YOffset:m.viewport.YOffset+m.viewport.Height],
+		"\n")
+
+	return ret
 }
 
 // displaySelection does that or writes it to a file if the selection is over a limit
@@ -174,8 +205,8 @@ func displaySelection(m *TuiModel) string {
 	if m.selectionText != "" { // this is basically just if its a string follow these rules
 		_, err := formatJson(m.selectionText)
 		rows := SplitLines(m.selectionText)
-		if err == nil && strings.Contains(m.selectionText, "{"){
-			rows = rows[m.viewport.YOffset:m.viewport.Height + m.viewport.YOffset]
+		if err == nil && strings.Contains(m.selectionText, "{") {
+			rows = rows[m.viewport.YOffset : m.viewport.Height+m.viewport.YOffset]
 		}
 
 		for len(rows) < m.viewport.Height {
