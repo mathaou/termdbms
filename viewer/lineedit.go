@@ -20,9 +20,8 @@ func exitToDefaultView(m *TuiModel) {
 }
 
 func BodyLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, input string) {
-	if input == "enter" {
-
-	}
+	val := selectedInput.Value()
+	selectedInput.SetValue(val + "\n")
 }
 
 func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, input string) {

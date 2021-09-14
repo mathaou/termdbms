@@ -80,9 +80,10 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	)
 
 	str = msg.String()
-	input = m.textInput.Model.Value()
-	if input != "" && m.textInput.Model.Cursor() <= len(input)-1 {
-		min := Max(m.textInput.Model.Cursor(), 0)
+	line := m.GetSelectedLineEdit()
+	input = line.Model.Value()
+	if input != "" && line.Model.Cursor() <= len(input)-1 {
+		min := Max(line.Model.Cursor(), 0)
 		min = Min(min, len(input)-1)
 		first := input[:min]
 		last := input[min:]
@@ -184,8 +185,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		if lipgloss.Width(str+m.textInput.Model.Prompt) > m.viewport.Width { // enter format view
 			m.formatModeEnabled = true
 			m.editModeEnabled = false
-			m.selectionText = str
 			m.textInput.Model.SetValue("")
+			m.formatInput.Model.SetValue(str)
 			m.formatInput.Model.focus = true
 			m.textInput.Model.focus = false
 			cmd = m.formatInput.Model.Focus()

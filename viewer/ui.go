@@ -4,6 +4,7 @@ import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
 	"strconv"
 	"strings"
 	"time"
@@ -165,16 +166,16 @@ func getFormattedTextBuffer(m *TuiModel) []string {
 		right string
 	)
 
-	wrapper := Wrapper(m.viewport.Width, false)
-
 	margins := headerHeight - footerHeight
 	offsetMax := m.viewport.Height - margins
 	lines := SplitLines(m.formatInput.Model.View())
 
 	for i, v := range lines {
-		wrap := wrapper(v)
-		right += Indent(wrap, fmt.Sprintf("%d ", i+m.viewport.YOffset), false)
+		wrapper := wordwrap.NewWriter(m.viewport.Width)
+		wrapper.Write([]byte(v))
+		right += Indent(wrapper.String(), fmt.Sprintf("%d ", i+m.viewport.YOffset), false)
 		right += "\n"
+		wrapper.Close()
 	}
 	for i := strings.Count(right, "\n"); i < offsetMax; i++ {
 		right += "\n"
