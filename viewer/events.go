@@ -98,7 +98,18 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		handleEditMode(m, str, input, val)
 		return cmd
 	} else if m.formatModeEnabled {
-		if str == "esc" {
+		switch str {
+		case "pgdown":
+			for i := 0; i < m.viewport.Height; i++ {
+				scrollDown(m)
+			}
+			break
+		case "pgup":
+			for i := 0; i < m.viewport.Height; i++ {
+				scrollUp(m)
+			}
+			break
+		case "esc" :
 			if m.textInput.Model.Focused() {
 				cmd = m.formatInput.Model.Focus()
 				m.textInput.Model.Blur()
@@ -106,8 +117,10 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 				cmd = m.textInput.Model.Focus()
 				m.formatInput.Model.Blur()
 			}
-		} else {
+			break
+		default:
 			handleEditMode(m, str, input, val)
+			break
 		}
 
 		return cmd
@@ -186,11 +199,14 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 			m.formatModeEnabled = true
 			m.editModeEnabled = false
 			m.textInput.Model.SetValue("")
-			m.formatInput.Model.SetValue(str)
+			m.selectionText = str
 			m.formatInput.Model.focus = true
 			m.textInput.Model.focus = false
 			cmd = m.formatInput.Model.Focus()
 			m.textInput.Model.Blur()
+			m.FormatText = getFormattedTextBuffer(m)
+			m.SetViewSlices()
+			m.formatInput.Model.setCursor(0)
 		} else {
 			m.textInput.Model.SetValue(str)
 			m.formatInput.Model.focus = false
@@ -217,6 +233,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 
 		// fix spacing and whatnot
 		m.tableStyle = m.tableStyle.Width(cw)
+		m.mouseEvent.Y = 0
+		m.mouseEvent.X = 0
 		m.viewport.YOffset = 0
 		m.scrollXOffset = 0
 		break

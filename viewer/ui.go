@@ -77,7 +77,7 @@ func toggleColumn(m *TuiModel) {
 
 // scrollDown is a simple function to move the viewport down
 func scrollDown(m *TuiModel) {
-	if m.formatModeEnabled && len(getFormattedTextBuffer(m))-m.viewport.YOffset-m.viewport.Height > 0 {
+	if m.formatModeEnabled && m.CanFormatScroll {
 		m.viewport.YOffset++
 		return
 	}
@@ -168,14 +168,20 @@ func getFormattedTextBuffer(m *TuiModel) []string {
 
 	margins := headerHeight - footerHeight
 	offsetMax := m.viewport.Height - margins
-	lines := SplitLines(m.formatInput.Model.View())
+	v := m.selectionText
+	if format, err := formatJson(v); err == nil {
+		v = format
+	}
+	m.formatInput.Model.SetValue(v)
+	lines := SplitLines(v)
 
 	for i, v := range lines {
-		wrapper := wordwrap.NewWriter(m.viewport.Width)
-		wrapper.Write([]byte(v))
-		right += Indent(wrapper.String(), fmt.Sprintf("%d ", i+m.viewport.YOffset), false)
+		xOffset := len(strconv.Itoa(i))
+		right += Indent(
+			wordwrap.String(v, m.viewport.Width),
+			fmt.Sprintf("%d%s", i+m.viewport.YOffset, strings.Repeat(" ", max(6-xOffset, 0))),
+			false)
 		right += "\n"
-		wrapper.Close()
 	}
 	for i := strings.Count(right, "\n"); i < offsetMax; i++ {
 		right += "\n"
@@ -185,10 +191,23 @@ func getFormattedTextBuffer(m *TuiModel) []string {
 }
 
 func displayFormatBuffer(m *TuiModel) string { // TODO this is wildly inefficient, rework
+	formatY := &m.FormatSlices[m.formatCursorY]
+	newY := ""
+	style := lipgloss.NewStyle().Background(lipgloss.Color("#FFFFFF"))
+	for x, r := range *formatY {
+		if x == m.formatCursorX {
+			newY += style.Render(string(r))
+		} else {
+			newY += string(r)
+		}
+	}
+	*formatY = newY
+
 	ret := strings.Join(
-		getFormattedTextBuffer(m)[m.viewport.YOffset:m.viewport.YOffset+m.viewport.Height],
+		m.FormatSlices,
 		"\n")
 
+	m.formatInput.Model.SetValue(ret)
 	return ret
 }
 

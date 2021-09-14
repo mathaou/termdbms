@@ -108,6 +108,7 @@ func (m *TuiModel) GetHeaders() []string {
 }
 
 func (m *TuiModel) SetViewSlices() {
+	// header slices
 	headers := m.TableHeaders[m.GetSchemaName()]
 	headersLen := len(headers)
 
@@ -115,6 +116,7 @@ func (m *TuiModel) SetViewSlices() {
 		headers = headers[m.scrollXOffset : maxHeaders+m.scrollXOffset-1]
 	}
 
+	// data slices
 	for _, columnName := range headers {
 		interfaceValues := m.GetSchemaData()[columnName]
 		if len(interfaceValues) >= m.viewport.Height {
@@ -126,6 +128,12 @@ func (m *TuiModel) SetViewSlices() {
 	}
 
 	m.TableHeadersSlice = headers
+
+	if m.formatModeEnabled {
+		m.FormatSlices = m.FormatText[m.viewport.YOffset:m.viewport.YOffset+m.viewport.Height]
+		m.CanFormatScroll = len(m.FormatText)-m.viewport.YOffset-m.viewport.Height > 0
+	}
+	// format slices
 }
 
 // GetSchemaData is a helper function to get the data of the current schema

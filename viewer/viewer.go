@@ -65,10 +65,13 @@ type TuiModel struct {
 	Table              TableState          // all non destructive changes are TableStates getting passed around
 	TableHeaders       map[string][]string // keeps track of which schema has which headers
 	TableHeadersSlice  []string
+	FormatSlices       []string
 	DataSlices         map[string][]interface{}
 	TableIndexMap      map[int]string // keeps the schemas in order
 	TableSelection     int
 	InitialFileName    string // used if saving destructively
+	FormatText         []string
+	CanFormatScroll    bool
 	ready              bool
 	renderSelection    bool // render mode
 	helpDisplay        bool // help display mode
@@ -77,6 +80,8 @@ type TuiModel struct {
 	selectionText      string
 	preScrollYOffset   int
 	preScrollYPosition int
+	formatCursorX      int
+	formatCursorY      int
 	scrollXOffset      int
 	borderToggle       bool
 	expandColumn       int
