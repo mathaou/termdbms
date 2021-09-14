@@ -119,8 +119,13 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 			}
 			break
 		default:
-			handleEditMode(m, str, input, val)
 			break
+		}
+
+		if m.textInput.Model.Focused() {
+			handleEditMode(m, str, input, val)
+		} else {
+			handleFormatMode(m, str, input, val)
 		}
 
 		return cmd

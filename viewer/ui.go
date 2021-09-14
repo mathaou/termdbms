@@ -10,10 +10,18 @@ import (
 	"time"
 )
 
+const (
+	formatModeOffset = 6
+)
+
 var (
 	Program *tea.Program
 	Ascii   bool
 )
+
+func getOffsetForLineNumber(a int) int {
+	return formatModeOffset - len(strconv.Itoa(a))
+}
 
 // selectOption does just that
 func selectOption(m *TuiModel) {
@@ -179,7 +187,7 @@ func getFormattedTextBuffer(m *TuiModel) []string {
 		xOffset := len(strconv.Itoa(i))
 		right += Indent(
 			wordwrap.String(v, m.viewport.Width),
-			fmt.Sprintf("%d%s", i+m.viewport.YOffset, strings.Repeat(" ", max(6-xOffset, 0))),
+			fmt.Sprintf("%d%s", i+m.viewport.YOffset, strings.Repeat(" ", max(formatModeOffset-xOffset, 0))),
 			false)
 		right += "\n"
 	}
@@ -190,21 +198,30 @@ func getFormattedTextBuffer(m *TuiModel) []string {
 	return SplitLines(right)
 }
 
-func displayFormatBuffer(m *TuiModel) string { // TODO this is wildly inefficient, rework
-	formatY := &m.FormatSlices[m.formatCursorY]
+func displayFormatBuffer(m *TuiModel) string {
+	cpy := make([]string, len(m.FormatSlices))
+	copy(cpy, m.FormatSlices)
 	newY := ""
-	style := lipgloss.NewStyle().Background(lipgloss.Color("#FFFFFF"))
-	for x, r := range *formatY {
-		if x == m.formatCursorX {
-			newY += style.Render(string(r))
-		} else {
-			newY += string(r)
+	line := &cpy[m.formatCursorY]
+	x := 0
+	offset := getOffsetForLineNumber(m.formatCursorY)
+	for _, r := range *line {
+		newY += string(r)
+		if x == m.formatCursorX + offset {
+			x++
+			break
 		}
+		x++
 	}
-	*formatY = newY
 
+	*line += " " // space at the end
+
+	highlight := string((*line)[x])
+	newY += lipgloss.NewStyle().Background(lipgloss.Color("#ffffff")).Render(highlight)
+	newY += (*line)[x+1:]
+	*line = newY
 	ret := strings.Join(
-		m.FormatSlices,
+		cpy,
 		"\n")
 
 	m.formatInput.Model.SetValue(ret)

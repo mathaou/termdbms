@@ -11,6 +11,19 @@ var (
 	}
 )
 
+func handleFormatMode(m *TuiModel, str, input, val string) {
+	if str == "right" {
+		m.formatCursorX++
+		offset := getOffsetForLineNumber(m.formatCursorY)
+		x := m.formatCursorX + offset + 1 // for the space at the end
+		l := len(m.FormatSlices[m.formatCursorY])
+		if l <= x {
+			m.formatCursorX = 0
+			m.formatCursorY++
+		}
+	}
+}
+
 // handleEditMode implementation is kind of jank, but we can clean it up later
 func handleEditMode(m *TuiModel, str, input, val string) {
 	inputLen := len(input)
