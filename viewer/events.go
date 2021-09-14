@@ -106,11 +106,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 				m.formatInput.Model.Blur()
 			}
 		} else {
-			if m.textInput.Model.focus {
-				handleEditMode(m, str, input, val)
-			} else {
-				handleFormatMode(m, str, input, val)
-			}
+			handleEditMode(m, str, input, val)
 		}
 
 		return cmd
@@ -185,12 +181,15 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		}
 
 		str := GetStringRepresentationOfInterface(*raw)
-		if lipgloss.Width(str+m.textInput.Model.Prompt) > m.viewport.Width {
+		if lipgloss.Width(str+m.textInput.Model.Prompt) > m.viewport.Width { // enter format view
 			m.formatModeEnabled = true
 			m.editModeEnabled = false
 			m.selectionText = str
+			m.textInput.Model.SetValue("")
 			m.formatInput.Model.focus = true
 			m.textInput.Model.focus = false
+			cmd = m.formatInput.Model.Focus()
+			m.textInput.Model.Blur()
 		} else {
 			m.textInput.Model.SetValue(str)
 			m.formatInput.Model.focus = false

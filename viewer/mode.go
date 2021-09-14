@@ -11,10 +11,6 @@ var (
 	}
 )
 
-func handleFormatMode(m *TuiModel, str, input, val string) {
-
-}
-
 // handleEditMode implementation is kind of jank, but we can clean it up later
 func handleEditMode(m *TuiModel, str, input, val string) {
 	inputLen := len(input)

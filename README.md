@@ -1,5 +1,7 @@
 # termdbms
 
+TODO CLEANUP REFACTOR FORMAT
+
 ## A TUI for viewing and editing databases, written in pure Go
 
 ###### Database Support

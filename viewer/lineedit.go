@@ -12,21 +12,26 @@ type LineEdit struct {
 	EnterBehavior EnterFunction
 }
 
-func BodyLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, input string) {
+func exitToDefaultView(m *TuiModel) {
+	m.editModeEnabled = false
+	m.formatModeEnabled = false
+	m.helpDisplay = false
+	m.GetSelectedLineEdit().Model.SetValue("")
+}
 
+func BodyLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, input string) {
+	if input == "enter" {
+
+	}
 }
 
 func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, input string) {
 	raw, _, col := m.GetSelectedOption()
 	if input == ":q" { // quit mod mode
-		m.editModeEnabled = false
-		m.formatModeEnabled = false
-		m.helpDisplay = false
-		selectedInput.SetValue("")
+		exitToDefaultView(m)
 		return
 	} else if input == ":s" { // saves copy, default filename + :s _____ will save with that filename in cwd
-		m.editModeEnabled = false
-		selectedInput.SetValue("")
+		exitToDefaultView(m)
 		newFileName, err := m.Serialize()
 		if err != nil {
 			m.DisplayMessage(fmt.Sprintf("%v", err))
@@ -35,8 +40,7 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, inp
 		}
 		return
 	} else if input == ":s!" { // overwrites original - should add confirmation dialog!
-		m.editModeEnabled = false
-		selectedInput.SetValue("")
+		exitToDefaultView(m)
 		err := m.SerializeOverwrite()
 		if err != nil {
 			m.DisplayMessage(fmt.Sprintf("%v", err))
@@ -49,6 +53,9 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, inp
 		m.DisplayMessage(GetHelpText())
 		return
 	} else if input == ":edit" {
+		if m.formatModeEnabled {
+			return
+		}
 		m.formatModeEnabled = true
 		m.editModeEnabled = false
 		if m.GetRow() >= len(col) {
@@ -64,8 +71,7 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, inp
 	}
 
 	if *raw == input {
-		m.editModeEnabled = false
-		selectedInput.SetValue("")
+		exitToDefaultView(m)
 		return
 	}
 

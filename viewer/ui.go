@@ -169,7 +169,7 @@ func getFormattedTextBuffer(m *TuiModel) []string {
 
 	margins := headerHeight - footerHeight
 	offsetMax := m.viewport.Height - margins
-	lines := SplitLines(m.selectionText)
+	lines := SplitLines(m.formatInput.Model.View())
 
 	for i, v := range lines {
 		wrap := wrapper(v)
