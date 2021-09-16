@@ -30,7 +30,7 @@ func handleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
 		}
 		break
 	default:
-		if !m.renderSelection && !m.editModeEnabled && !m.helpDisplay {
+		if !m.renderSelection && !m.editModeEnabled && !m.helpDisplay && !m.formatModeEnabled {
 			m.mouseEvent = tea.MouseEvent(*msg)
 		}
 		break
@@ -73,43 +73,17 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 // handleKeyboardEvents does that
 func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	var (
-		str   string
-		input string
-		val   string
-		cmd   tea.Cmd
+		cmd tea.Cmd
 	)
 
-	str = msg.String()
-	line := m.GetSelectedLineEdit()
-	input = line.Model.Value()
-	if input != "" && line.Model.Cursor() <= len(input)-1 {
-		min := Max(line.Model.Cursor(), 0)
-		min = Min(min, len(input)-1)
-		first := input[:min]
-		last := input[min:]
-		val = first + str + last
-	} else {
-		val = input + str
-	}
-
+	str := msg.String()
 	cw := m.CellWidth()
 
 	if m.editModeEnabled { // handle edit mode
-		handleEditMode(m, str, input, val)
+		handleEditMode(m, str)
 		return cmd
 	} else if m.formatModeEnabled {
-		switch str {
-		case "pgdown":
-			for i := 0; i < m.viewport.Height; i++ {
-				scrollDown(m)
-			}
-			break
-		case "pgup":
-			for i := 0; i < m.viewport.Height; i++ {
-				scrollUp(m)
-			}
-			break
-		case "esc" :
+		if str == "esc" {
 			if m.textInput.Model.Focused() {
 				cmd = m.formatInput.Model.Focus()
 				m.textInput.Model.Blur()
@@ -117,15 +91,33 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 				cmd = m.textInput.Model.Focus()
 				m.formatInput.Model.Blur()
 			}
-			break
-		default:
-			break
 		}
 
 		if m.textInput.Model.Focused() {
-			handleEditMode(m, str, input, val)
+			handleEditMode(m, str)
 		} else {
-			handleFormatMode(m, str, input, val)
+			switch str {
+			case "pgdown":
+				l := len(m.FormatText) - 1
+				for i := 0; i < m.viewport.Height && m.viewport.YOffset < l; i++ {
+					scrollDown(m)
+				}
+				break
+			case "pgup":
+				for i := 0; i < m.viewport.Height && m.viewport.YOffset > 0; i++ {
+					scrollUp(m)
+				}
+				break
+			case "home":
+				m.viewport.YOffset = 0
+				break
+			case "end":
+				m.viewport.YOffset = len(m.FormatText) - m.viewport.Height
+				break
+			default:
+				break
+			}
+			handleFormatMode(m, str)
 		}
 
 		return cmd
@@ -204,11 +196,14 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 			m.formatModeEnabled = true
 			m.editModeEnabled = false
 			m.textInput.Model.SetValue("")
-			m.selectionText = str
+			m.formatInput.Model.SetValue("") // TODO likely not necessary
 			m.formatInput.Model.focus = true
 			m.textInput.Model.focus = false
 			cmd = m.formatInput.Model.Focus()
 			m.textInput.Model.Blur()
+			//m.selectionText = str
+			m.selectionText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis nec tortor eget metus aliquam ornare ac nec odio. Vestibulum quam mauris, malesuada sit amet tincidunt in, luctus eu tortor. Duis elementum turpis non lectus interdum, sed egestas erat aliquam. In hac habitasse platea dictumst. Phasellus consequat elit nec neque pharetra egestas. Nulla sodales interdum justo eu venenatis. Vestibulum gravida pretium sapien, sit amet lobortis neque finibus vitae. Fusce consectetur, augue a fringilla suscipit, mi massa placerat ipsum, et cursus risus orci at augue. Morbi nec venenatis orci. Ut maximus orci tincidunt, cursus mi vel, mattis elit. In elementum non lacus non accumsan. Sed felis diam, ornare et arcu a, sollicitudin convallis neque.\n\nSed ut nulla at ex pellentesque vestibulum ut sit amet massa. Vivamus luctus tristique aliquet. Donec in risus ligula. In hac habitasse platea dictumst. Nullam hendrerit pellentesque felis, id mollis libero pretium eget. Nulla vestibulum id purus id dignissim. Ut arcu neque, viverra ac lectus in, aliquet malesuada augue. Curabitur aliquam vestibulum ullamcorper. Pellentesque ac imperdiet risus. Aliquam iaculis massa felis, vitae mollis ex placerat in. Aenean eu turpis quis massa sollicitudin pulvinar. Aliquam luctus euismod sapien at ullamcorper. Morbi placerat, dolor sit amet ultrices vulputate, arcu metus posuere nisi, id bibendum augue urna dapibus mauris. Phasellus condimentum ultrices interdum. Fusce tincidunt mauris sit amet facilisis sodales.\n\nSed non arcu sit amet massa luctus vehicula in in mauris. In vel fermentum quam. Nam eget elit vehicula, facilisis libero non, porttitor mi. Aenean euismod placerat risus, vitae condimentum libero lobortis vel. Quisque bibendum quis mi eget pharetra. Aenean pretium vitae augue non luctus. Phasellus malesuada nisi vel quam porta, vel suscipit ex lacinia. Nunc venenatis magna sit amet lectus cursus convallis. Morbi metus dui, condimentum ut aliquam vel, lacinia id nibh.\n\nVestibulum ut condimentum lorem. Aliquam est tortor, euismod quis bibendum ut, egestas id odio. Fusce consectetur vel tortor sed tempor. Aliquam erat volutpat. Etiam hendrerit tellus mi, quis vestibulum mi semper ac. Praesent porta justo eu justo vestibulum consectetur. Aliquam venenatis dignissim pulvinar. Ut id condimentum felis. In sit amet lacinia quam, et mollis odio. Integer nec mi arcu. Aenean molestie lacus id orci viverra, nec tempor neque accumsan. Donec nec ligula nisi. Nulla facilisi. Aliquam erat volutpat.\n\nSed convallis tristique molestie. Morbi pulvinar ullamcorper ante. Donec et molestie leo, vitae elementum arcu. Mauris in ligula condimentum, auctor neque a, viverra risus. Proin ut ligula dolor. Donec nunc ipsum, sodales ac dignissim at, tempus in mauris. Quisque scelerisque rutrum nisi nec dignissim. Curabitur blandit tincidunt aliquam. Maecenas eget varius nisi, non lacinia lacus."
+			m.formatInput.Original = raw
 			m.FormatText = getFormattedTextBuffer(m)
 			m.SetViewSlices()
 			m.formatInput.Model.setCursor(0)
@@ -238,7 +233,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 
 		// fix spacing and whatnot
 		m.tableStyle = m.tableStyle.Width(cw)
-		m.mouseEvent.Y = 0
+		m.mouseEvent.Y = headerHeight
 		m.mouseEvent.X = 0
 		m.viewport.YOffset = 0
 		m.scrollXOffset = 0
@@ -252,6 +247,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 
 		// fix spacing and whatnot
 		m.tableStyle = m.tableStyle.Width(cw)
+		m.mouseEvent.Y = headerHeight
+		m.mouseEvent.X = 0
 		m.viewport.YOffset = 0
 		m.scrollXOffset = 0
 		break
@@ -329,6 +326,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		m.renderSelection = false
 		m.helpDisplay = false
 		m.selectionText = ""
+		cmd = m.textInput.Model.Focus()
+		m.textInput.Model.SetValue("")
 		m.expandColumn = -1
 		m.mouseEvent.Y = m.preScrollYPosition
 		m.viewport.YOffset = m.preScrollYOffset

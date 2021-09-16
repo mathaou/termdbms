@@ -10,13 +10,10 @@ import (
 	"time"
 )
 
-const (
-	formatModeOffset = 6
-)
-
 var (
 	Program *tea.Program
 	Ascii   bool
+	formatModeOffset int
 )
 
 func getOffsetForLineNumber(a int) int {
@@ -105,6 +102,11 @@ func scrollDown(m *TuiModel) {
 
 // scrollUp is a simple function to move the viewport up
 func scrollUp(m *TuiModel) {
+	if m.formatModeEnabled && m.CanFormatScroll && m.viewport.YOffset > 0 {
+		m.viewport.YOffset--
+		return
+	}
+
 	if m.viewport.YOffset > 0 {
 		m.viewport.YOffset--
 		m.mouseEvent.Y = Min(m.mouseEvent.Y, m.viewport.YOffset)
@@ -170,44 +172,63 @@ func displayTable(m *TuiModel) string {
 }
 
 func getFormattedTextBuffer(m *TuiModel) []string {
-	var (
-		right string
-	)
-
 	margins := headerHeight - footerHeight
 	offsetMax := m.viewport.Height - margins
 	v := m.selectionText
+	validJson := false
 	if format, err := formatJson(v); err == nil {
 		v = format
+		validJson = true
 	}
-	m.formatInput.Model.SetValue(v)
-	lines := SplitLines(v)
 
+	lines := SplitLines(v)
+	formatModeOffset = len(strconv.Itoa(len(lines))) + 1 // number of characters in the numeric string
+	lineLength := len(lines)
+
+	ret := []string{}
+	m.FormatRunningOffsets = make([]int, lineLength)
+
+	total := 0
+	strlen := 0
 	for i, v := range lines {
 		xOffset := len(strconv.Itoa(i))
-		right += Indent(
-			wordwrap.String(v, m.viewport.Width),
-			fmt.Sprintf("%d%s", i+m.viewport.YOffset, strings.Repeat(" ", max(formatModeOffset-xOffset, 0))),
+		totalOffset := Max(formatModeOffset-xOffset, 0)
+		right := Indent(
+			wordwrap.String(v, m.viewport.Width - totalOffset),
+			fmt.Sprintf("%d%s", i+m.viewport.YOffset, strings.Repeat(" ", totalOffset)),
 			false)
-		right += "\n"
+		ret = append(ret, right)
+		m.FormatRunningOffsets[i] = total
+		if validJson {
+			strlen = len(strings.TrimSpace(v))
+		} else {
+			strlen = len(v)
+		}
+
+		total += strlen
+		if strlen > 1 {
+			total--
+		}
 	}
-	for i := strings.Count(right, "\n"); i < offsetMax; i++ {
-		right += "\n"
+	for i := len(ret); i < offsetMax; i++ {
+		ret = append(ret, "")
 	}
 
-	return SplitLines(right)
+	return ret
 }
 
 func displayFormatBuffer(m *TuiModel) string {
 	cpy := make([]string, len(m.FormatSlices))
-	copy(cpy, m.FormatSlices)
+	for i, v := range m.FormatSlices {
+		cpy[i] = *v
+	}
 	newY := ""
 	line := &cpy[m.formatCursorY]
 	x := 0
 	offset := getOffsetForLineNumber(m.formatCursorY)
 	for _, r := range *line {
 		newY += string(r)
-		if x == m.formatCursorX + offset {
+		if x == m.formatCursorX+offset {
 			x++
 			break
 		}

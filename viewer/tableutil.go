@@ -3,6 +3,7 @@ package viewer
 import (
 	"database/sql"
 	"github.com/charmbracelet/lipgloss"
+	"strings"
 )
 
 var maxHeaders int
@@ -81,7 +82,7 @@ func (m *TuiModel) GetBaseStyle() lipgloss.Style {
 // GetColumn gets the column the mouse cursor is in
 func (m *TuiModel) GetColumn() int {
 	baseVal := m.mouseEvent.X / m.CellWidth()
-	if m.renderSelection || m.editModeEnabled {
+	if m.renderSelection || m.editModeEnabled || m.formatModeEnabled {
 		return m.scrollXOffset + baseVal
 	}
 
@@ -91,7 +92,7 @@ func (m *TuiModel) GetColumn() int {
 // GetRow does math to get a valid row that's helpful
 func (m *TuiModel) GetRow() int {
 	baseVal := Max(m.mouseEvent.Y-headerHeight, 0)
-	if m.renderSelection || m.editModeEnabled {
+	if m.renderSelection || m.editModeEnabled || m.formatModeEnabled {
 		return m.viewport.YOffset + baseVal
 	}
 	return baseVal
@@ -130,8 +131,19 @@ func (m *TuiModel) SetViewSlices() {
 	m.TableHeadersSlice = headers
 
 	if m.formatModeEnabled {
-		m.FormatSlices = m.FormatText[m.viewport.YOffset:m.viewport.YOffset+m.viewport.Height]
+		slices := []*string{}
+		i := m.formatCursorY
+		newlines := 0
+		for newlines < m.viewport.Height {
+			slices = append(slices, &m.FormatText[Max(m.viewport.YOffset, 0) + i])
+			newlines += strings.Count(*slices[i], "\n") + 1
+			i++
+		}
+		m.FormatSlices = slices
 		m.CanFormatScroll = len(m.FormatText)-m.viewport.YOffset-m.viewport.Height > 0
+		if m.formatCursorX < 0 { // TODO hack fix
+			m.formatCursorX = 0
+		}
 	}
 	// format slices
 }
@@ -164,8 +176,8 @@ func (m *TuiModel) GetRowData() map[string]interface{} {
 func (m *TuiModel) GetSelectedOption() (*interface{}, int, []interface{}) {
 	m.preScrollYOffset = m.viewport.YOffset
 	m.preScrollYPosition = m.mouseEvent.Y
-	col := m.GetColumnData()
 	row := m.GetRow()
+	col := m.GetColumnData()
 	if row >= len(col) {
 		return nil, row, col
 	}

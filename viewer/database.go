@@ -27,6 +27,7 @@ func init() {
 	dbs = make(map[string]*sql.DB)
 }
 
+
 func (m *TuiModel) ProcessSqlQueryForDatabaseType(q Query) {
 	switch conv := q.(type) {
 	case *Update:
@@ -37,6 +38,7 @@ func (m *TuiModel) ProcessSqlQueryForDatabaseType(q Query) {
 		break
 	}
 }
+
 
 // GetDatabaseForFile does what you think it does
 func GetDatabaseForFile(database string) *sql.DB {

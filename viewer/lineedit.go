@@ -10,12 +10,19 @@ type EnterFunction func(m *TuiModel, selectedInput *TextInputModel, input string
 type LineEdit struct {
 	Model         TextInputModel
 	EnterBehavior EnterFunction
+	Original      *interface{}
 }
 
 func exitToDefaultView(m *TuiModel) {
 	m.editModeEnabled = false
 	m.formatModeEnabled = false
 	m.helpDisplay = false
+	m.formatCursorY = 0
+	m.formatCursorX = 0
+	m.FormatRunningOffsets = nil
+	m.FormatSlices = nil
+	m.CanFormatScroll = false
+	m.FormatText = nil
 	m.GetSelectedLineEdit().Model.SetValue("")
 }
 

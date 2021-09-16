@@ -25,6 +25,7 @@ const (
 	maximumRendererCharacters = math.MaxInt32
 )
 
+// styling functions
 var (
 	highlight = func() string {
 		return ThemesMap[SelectedTheme][highlightKey]
@@ -55,6 +56,7 @@ var (
 	}
 )
 
+// TableState holds everything needed to save/serialize state
 type TableState struct {
 	Database Database
 	Data     map[string]interface{}
@@ -62,37 +64,38 @@ type TableState struct {
 
 // TuiModel holds all the necessary state for this app to work the way I designed it to
 type TuiModel struct {
-	Table              TableState          // all non destructive changes are TableStates getting passed around
-	TableHeaders       map[string][]string // keeps track of which schema has which headers
-	TableHeadersSlice  []string
-	FormatSlices       []string
-	DataSlices         map[string][]interface{}
-	TableIndexMap      map[int]string // keeps the schemas in order
-	TableSelection     int
-	InitialFileName    string // used if saving destructively
-	FormatText         []string
-	CanFormatScroll    bool
-	ready              bool
-	renderSelection    bool // render mode
-	helpDisplay        bool // help display mode
-	editModeEnabled    bool // edit mode
-	formatModeEnabled  bool
-	selectionText      string
-	preScrollYOffset   int
-	preScrollYPosition int
-	formatCursorX      int
-	formatCursorY      int
-	scrollXOffset      int
-	borderToggle       bool
-	expandColumn       int
-	viewport           viewport.Model
-	tableStyle         lipgloss.Style
-	mouseEvent         tea.MouseEvent
-	textInput          LineEdit
-	formatInput        LineEdit
-	UndoStack          []TableState
-	RedoStack          []TableState
-	err                error
+	Table                TableState          // all non-destructive changes are TableStates getting passed around
+	TableHeaders         map[string][]string // keeps track of which schema has which headers
+	TableHeadersSlice    []string
+	FormatSlices         []*string
+	DataSlices           map[string][]interface{}
+	TableIndexMap        map[int]string // keeps the schemas in order
+	TableSelection       int
+	InitialFileName      string // used if saving destructively
+	FormatText           []string
+	FormatRunningOffsets []int
+	CanFormatScroll      bool
+	ready                bool
+	renderSelection      bool // render mode
+	helpDisplay          bool // help display mode
+	editModeEnabled      bool // edit mode
+	formatModeEnabled    bool
+	selectionText        string
+	preScrollYOffset     int
+	preScrollYPosition   int
+	formatCursorX        int
+	formatCursorY        int
+	scrollXOffset        int
+	borderToggle         bool
+	expandColumn         int
+	viewport             viewport.Model
+	tableStyle           lipgloss.Style
+	mouseEvent           tea.MouseEvent
+	textInput            LineEdit
+	formatInput          LineEdit
+	UndoStack            []TableState
+	RedoStack            []TableState
+	err                  error
 }
 
 func setStyles() {
@@ -165,6 +168,9 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		handleKeyboardEvents(&m, &msg)
 		if !m.editModeEnabled && m.ready {
 			m.SetViewSlices()
+			if m.formatModeEnabled {
+				moveCursorWithinBounds(&m)
+			}
 		}
 
 		break
@@ -173,7 +179,9 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.viewport, _ = m.viewport.Update(message)
+	if !m.formatModeEnabled {
+		m.viewport, _ = m.viewport.Update(message)
+	}
 
 	if m.viewport.HighPerformanceRendering {
 		cmds = append(cmds, cmd)
@@ -262,7 +270,18 @@ func (m TuiModel) View() string {
 
 	// footer (shows row/col for now)
 	go func(f *string) {
-		footer := fmt.Sprintf(" %d, %d ", m.GetRow()+m.viewport.YOffset, m.GetColumn()+m.scrollXOffset)
+		var (
+			row int
+			col int
+		)
+		if !m.formatModeEnabled { // reason we flip is because it makes more sense to store things by column for data
+			row = m.GetRow() + m.viewport.YOffset
+			col = m.GetColumn() + m.scrollXOffset
+		} else { // but for format mode thats just a regular row/col situation
+			row = m.formatCursorX
+			col = m.formatCursorY + m.viewport.YOffset
+		}
+		footer := fmt.Sprintf(" %d, %d ", row, col)
 		undoRedoInfo := fmt.Sprintf("undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
 		switch m.Table.Database.(type) {
 		case *SQLite:
