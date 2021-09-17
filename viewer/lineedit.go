@@ -17,12 +17,12 @@ func exitToDefaultView(m *TuiModel) {
 	m.editModeEnabled = false
 	m.formatModeEnabled = false
 	m.helpDisplay = false
-	m.formatCursorY = 0
-	m.formatCursorX = 0
-	m.FormatRunningOffsets = nil
-	m.FormatSlices = nil
+	m.Format.CursorY = 0
+	m.Format.CursorX = 0
+	m.Format.RunningOffsets = nil
+	m.Format.Slices = nil
 	m.CanFormatScroll = false
-	m.FormatText = nil
+	m.Format.Text = nil
 	m.GetSelectedLineEdit().Model.SetValue("")
 }
 

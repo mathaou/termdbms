@@ -62,40 +62,45 @@ type TableState struct {
 	Data     map[string]interface{}
 }
 
+type FormatState struct {
+	Slices         []*string
+	Text           []string
+	RunningOffsets []int
+	NewlineCount   []int
+	CursorX        int
+	CursorY        int
+}
+
 // TuiModel holds all the necessary state for this app to work the way I designed it to
 type TuiModel struct {
-	Table                TableState          // all non-destructive changes are TableStates getting passed around
-	TableHeaders         map[string][]string // keeps track of which schema has which headers
-	TableHeadersSlice    []string
-	FormatSlices         []*string
-	DataSlices           map[string][]interface{}
-	TableIndexMap        map[int]string // keeps the schemas in order
-	TableSelection       int
-	InitialFileName      string // used if saving destructively
-	FormatText           []string
-	FormatRunningOffsets []int
-	CanFormatScroll      bool
-	ready                bool
-	renderSelection      bool // render mode
-	helpDisplay          bool // help display mode
-	editModeEnabled      bool // edit mode
-	formatModeEnabled    bool
-	selectionText        string
-	preScrollYOffset     int
-	preScrollYPosition   int
-	formatCursorX        int
-	formatCursorY        int
-	scrollXOffset        int
-	borderToggle         bool
-	expandColumn         int
-	viewport             viewport.Model
-	tableStyle           lipgloss.Style
-	mouseEvent           tea.MouseEvent
-	textInput            LineEdit
-	formatInput          LineEdit
-	UndoStack            []TableState
-	RedoStack            []TableState
-	err                  error
+	Table              TableState // all non-destructive changes are TableStates getting passed around
+	Format             FormatState
+	TableHeaders       map[string][]string // keeps track of which schema has which headers
+	TableHeadersSlice  []string
+	DataSlices         map[string][]interface{}
+	TableIndexMap      map[int]string // keeps the schemas in order
+	TableSelection     int
+	InitialFileName    string // used if saving destructively
+	CanFormatScroll    bool
+	ready              bool
+	renderSelection    bool // render mode
+	helpDisplay        bool // help display mode
+	editModeEnabled    bool // edit mode
+	formatModeEnabled  bool
+	selectionText      string
+	preScrollYOffset   int
+	preScrollYPosition int
+	scrollXOffset      int
+	borderToggle       bool
+	expandColumn       int
+	viewport           viewport.Model
+	tableStyle         lipgloss.Style
+	mouseEvent         tea.MouseEvent
+	textInput          LineEdit
+	formatInput        LineEdit
+	UndoStack          []TableState
+	RedoStack          []TableState
+	err                error
 }
 
 func setStyles() {
@@ -278,8 +283,8 @@ func (m TuiModel) View() string {
 			row = m.GetRow() + m.viewport.YOffset
 			col = m.GetColumn() + m.scrollXOffset
 		} else { // but for format mode thats just a regular row/col situation
-			row = m.formatCursorX
-			col = m.formatCursorY + m.viewport.YOffset
+			row = m.Format.CursorX
+			col = m.Format.CursorY + m.viewport.YOffset
 		}
 		footer := fmt.Sprintf(" %d, %d ", row, col)
 		undoRedoInfo := fmt.Sprintf("undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))

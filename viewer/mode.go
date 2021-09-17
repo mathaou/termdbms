@@ -17,48 +17,48 @@ var (
 )
 
 func moveCursorWithinBounds(m *TuiModel) {
-	offset := getOffsetForLineNumber(m.formatCursorY)
-	l := len(*m.FormatSlices[m.formatCursorY])
+	offset := getOffsetForLineNumber(m.Format.CursorY)
+	l := len(*m.Format.Slices[m.Format.CursorY])
 	end := l - 1 - offset
-	if m.formatCursorX > end {
-		m.formatCursorX = end
+	if m.Format.CursorX > end {
+		m.Format.CursorX = end
 	}
 }
 
 func handleFormatModeMovement(m *TuiModel, str string) (ret bool) {
 	if str == "right" {
 		ret = true
-		m.formatCursorX++
+		m.Format.CursorX++
 
-		offset := getOffsetForLineNumber(m.formatCursorY)
-		x := m.formatCursorX + offset + 1 // for the space at the end
-		l := len(*m.FormatSlices[m.formatCursorY])
-		maxY := len(m.FormatSlices) - 1
-		if l < x && m.formatCursorY < maxY {
-			m.formatCursorX = 0
-			m.formatCursorY++
-		} else if l < x && m.formatCursorY < len(m.FormatText)-1 {
+		offset := getOffsetForLineNumber(m.Format.CursorY)
+		x := m.Format.CursorX + offset + 1 // for the space at the end
+		l := len(*m.Format.Slices[m.Format.CursorY])
+		maxY := len(m.Format.Slices) - 1
+		if l < x && m.Format.CursorY < maxY {
+			m.Format.CursorX = 0
+			m.Format.CursorY++
+		} else if l < x && m.Format.CursorY < len(m.Format.Text)-1 {
 			go Program.Send(
 				tea.KeyMsg{
 					Type: tea.KeyDown,
 					Alt:  false,
 				},
 			)
-		} else if m.formatCursorY > maxY {
-			m.formatCursorX = maxY
+		} else if m.Format.CursorY > maxY {
+			m.Format.CursorX = maxY
 		}
 	} else if str == "left" {
 		ret = true
-		m.formatCursorX--
+		m.Format.CursorX--
 
-		if m.formatCursorX < 0 && m.formatCursorY > 0 {
-			m.formatCursorY--
+		if m.Format.CursorX < 0 && m.Format.CursorY > 0 {
+			m.Format.CursorY--
 
-			offset := getOffsetForLineNumber(m.formatCursorY)
-			l := len(*m.FormatSlices[m.formatCursorY])
-			m.formatCursorX = l - 1 - offset
-		} else if m.formatCursorX < 0 &&
-			m.formatCursorY == 0 &&
+			offset := getOffsetForLineNumber(m.Format.CursorY)
+			l := len(*m.Format.Slices[m.Format.CursorY])
+			m.Format.CursorX = l - 1 - offset
+		} else if m.Format.CursorX < 0 &&
+			m.Format.CursorY == 0 &&
 			m.viewport.YOffset > 0 {
 			go Program.Send(
 				tea.KeyMsg{
@@ -66,20 +66,20 @@ func handleFormatModeMovement(m *TuiModel, str string) (ret bool) {
 					Alt:  false,
 				},
 			)
-		} else if m.formatCursorX < 0 {
-			m.formatCursorX = 0
+		} else if m.Format.CursorX < 0 {
+			m.Format.CursorX = 0
 		}
 	} else if str == "up" {
 		ret = true
-		if m.formatCursorY > 0 {
-			m.formatCursorY--
+		if m.Format.CursorY > 0 {
+			m.Format.CursorY--
 		} else if m.viewport.YOffset > 0 {
 			scrollUp(m)
 		}
 	} else if str == "down" {
 		ret = true
-		if m.formatCursorY < m.viewport.Height-footerHeight && m.formatCursorY < len(m.FormatSlices) {
-			m.formatCursorY++
+		if m.Format.CursorY < m.viewport.Height-footerHeight && m.Format.CursorY < len(m.Format.Slices) {
+			m.Format.CursorY++
 		} else {
 			scrollDown(m)
 		}
@@ -103,12 +103,12 @@ func handleFormatMode(m *TuiModel, str string) {
 		}
 	}
 
-	lineNumberOffset := getOffsetForLineNumber(m.formatCursorY)
+	lineNumberOffset := getOffsetForLineNumber(m.Format.CursorY)
 
 	// update UI
-	pString := m.FormatSlices[m.formatCursorY]
+	pString := m.Format.Slices[m.Format.CursorY]
 	if *pString != "" {
-		min := Max(m.formatCursorX+lineNumberOffset+1, 0)
+		min := Max(m.Format.CursorX+lineNumberOffset+1, 0)
 		min = Min(min, len(*pString)-1)
 		first := (*pString)[:min]
 		last := (*pString)[min:]
@@ -117,15 +117,14 @@ func handleFormatMode(m *TuiModel, str string) {
 		val = *pString + str
 	}
 
-
 	// if json special rules
 	if _, err := formatJson(replacement); err != nil {
 		replacement = m.selectionText
-		cursor := m.FormatRunningOffsets[m.viewport.YOffset+m.formatCursorY]
+		cursor := m.Format.RunningOffsets[m.viewport.YOffset+m.Format.CursorY]
 
 		first := replacement[:Max(cursor, 0)]
 		middle := strings.TrimSpace(val[lineNumberOffset:])
-		last := replacement[m.FormatRunningOffsets[m.viewport.YOffset+m.formatCursorY+1]:]
+		last := replacement[m.Format.RunningOffsets[m.viewport.YOffset+m.Format.CursorY+1]:]
 
 		replacement = first + // replace the entire line the edit appears on
 			middle + // insert the edit
@@ -143,7 +142,7 @@ func handleFormatMode(m *TuiModel, str string) {
 	}
 
 	*pString = val
-	m.formatCursorX++
+	m.Format.CursorX++
 }
 
 // handleEditMode implementation is kind of jank, but we can clean it up later

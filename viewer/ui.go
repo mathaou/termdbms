@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	Program *tea.Program
-	Ascii   bool
+	Program          *tea.Program
+	Ascii            bool
 	formatModeOffset int
 )
 
@@ -186,19 +186,24 @@ func getFormattedTextBuffer(m *TuiModel) []string {
 	lineLength := len(lines)
 
 	ret := []string{}
-	m.FormatRunningOffsets = make([]int, lineLength)
+	m.Format.RunningOffsets = make([]int, lineLength)
+	m.Format.NewlineCount = make([]int, lineLength)
 
 	total := 0
 	strlen := 0
 	for i, v := range lines {
 		xOffset := len(strconv.Itoa(i))
 		totalOffset := Max(formatModeOffset-xOffset, 0)
+
+		wrap := wordwrap.String(v, m.viewport.Width-totalOffset)
 		right := Indent(
-			wordwrap.String(v, m.viewport.Width - totalOffset),
+			wrap,
 			fmt.Sprintf("%d%s", i+m.viewport.YOffset, strings.Repeat(" ", totalOffset)),
 			false)
 		ret = append(ret, right)
-		m.FormatRunningOffsets[i] = total
+		m.Format.RunningOffsets[i] = total
+		m.Format.NewlineCount[i] = strings.Count(wrap, "\n")
+
 		if validJson {
 			strlen = len(strings.TrimSpace(v))
 		} else {
@@ -218,17 +223,17 @@ func getFormattedTextBuffer(m *TuiModel) []string {
 }
 
 func displayFormatBuffer(m *TuiModel) string {
-	cpy := make([]string, len(m.FormatSlices))
-	for i, v := range m.FormatSlices {
+	cpy := make([]string, len(m.Format.Slices))
+	for i, v := range m.Format.Slices {
 		cpy[i] = *v
 	}
 	newY := ""
-	line := &cpy[m.formatCursorY]
+	line := &cpy[m.Format.CursorY]
 	x := 0
-	offset := getOffsetForLineNumber(m.formatCursorY)
+	offset := getOffsetForLineNumber(m.Format.CursorY)
 	for _, r := range *line {
 		newY += string(r)
-		if x == m.formatCursorX+offset {
+		if x == m.Format.CursorX+offset {
 			x++
 			break
 		}
@@ -241,11 +246,21 @@ func displayFormatBuffer(m *TuiModel) string {
 	newY += lipgloss.NewStyle().Background(lipgloss.Color("#ffffff")).Render(highlight)
 	newY += (*line)[x+1:]
 	*line = newY
+	total := 0
+	for i := 0; i < m.viewport.Height; i++ {
+		newlines := m.Format.NewlineCount[i+m.viewport.YOffset]
+		total += newlines
+		if total > m.viewport.Height-headerHeight-footerHeight {
+			splits := strings.SplitAfterN(cpy[i], "\n", newlines-1)
+			// TODO start here tomorrow
+			cpy[i] = splits[0]
+			break
+		}
+	}
 	ret := strings.Join(
 		cpy,
 		"\n")
 
-	m.formatInput.Model.SetValue(ret)
 	return ret
 }
 

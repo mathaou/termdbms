@@ -3,7 +3,6 @@ package viewer
 import (
 	"database/sql"
 	"github.com/charmbracelet/lipgloss"
-	"strings"
 )
 
 var maxHeaders int
@@ -17,6 +16,14 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 				db:       db,
 			},
 			Data: make(map[string]interface{}),
+		},
+		Format: FormatState{
+			Slices:         nil,
+			Text:           nil,
+			RunningOffsets: nil,
+			NewlineCount:   nil,
+			CursorX:        0,
+			CursorY:        0,
 		},
 		TableHeaders:    make(map[string][]string),
 		DataSlices:      make(map[string][]interface{}),
@@ -131,18 +138,18 @@ func (m *TuiModel) SetViewSlices() {
 	m.TableHeadersSlice = headers
 
 	if m.formatModeEnabled {
-		slices := []*string{}
-		i := m.formatCursorY
+		var slices []*string
+		i := m.Format.CursorY
 		newlines := 0
-		for newlines < m.viewport.Height {
-			slices = append(slices, &m.FormatText[Max(m.viewport.YOffset, 0) + i])
-			newlines += strings.Count(*slices[i], "\n") + 1
+		for newlines < m.viewport.Height-headerHeight {
+			slices = append(slices, &m.Format.Text[Max(m.viewport.YOffset, 0)+i])
+			newlines += m.Format.NewlineCount[i]
 			i++
 		}
-		m.FormatSlices = slices
-		m.CanFormatScroll = len(m.FormatText)-m.viewport.YOffset-m.viewport.Height > 0
-		if m.formatCursorX < 0 { // TODO hack fix
-			m.formatCursorX = 0
+		m.Format.Slices = slices
+		m.CanFormatScroll = len(m.Format.Text)-m.viewport.YOffset-m.viewport.Height > 0
+		if m.Format.CursorX < 0 { // TODO hack fix
+			m.Format.CursorX = 0
 		}
 	}
 	// format slices
