@@ -31,6 +31,10 @@ func TruncateIfApplicable(m *TuiModel, conv string) (s string) {
 		max = cellWidth
 	}
 
+	if strings.Count(conv, "\n") > 0 {
+		conv = SplitLines(conv)[0]
+	}
+
 	textWidth := lipgloss.Width(conv)
 	minVal := Min(textWidth, max)
 

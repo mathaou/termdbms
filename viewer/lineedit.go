@@ -19,11 +19,13 @@ func exitToDefaultView(m *TuiModel) {
 	m.helpDisplay = false
 	m.Format.CursorY = 0
 	m.Format.CursorX = 0
+	m.viewport.YOffset = 0
 	m.Format.RunningOffsets = nil
 	m.Format.Slices = nil
 	m.CanFormatScroll = false
 	m.Format.Text = nil
-	m.GetSelectedLineEdit().Model.SetValue("")
+	m.formatInput.Model.Reset()
+	m.textInput.Model.Reset()
 }
 
 func BodyLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, input string) {
@@ -31,12 +33,51 @@ func BodyLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, input
 	selectedInput.SetValue(val + "\n")
 }
 
-func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, input string) {
+func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i string) {
+	var (
+		original *interface{}
+		input    string
+	)
 	raw, _, col := m.GetSelectedOption()
-	if input == ":q" { // quit mod mode
+
+	if i == ":q" { // quit mod mode
 		exitToDefaultView(m)
 		return
-	} else if input == ":s" { // saves copy, default filename + :s _____ will save with that filename in cwd
+	}
+	if !m.formatModeEnabled {
+		input = i
+		original = raw
+		if input == ":h" {
+			m.helpDisplay = true
+			m.DisplayMessage(GetHelpText())
+			return
+		} else if input == ":edit" {
+			if m.formatModeEnabled {
+				return
+			}
+			m.formatModeEnabled = true
+			m.editModeEnabled = false
+			if m.GetRow() >= len(col) {
+				m.editModeEnabled = false
+				return
+			}
+
+			m.selectionText = GetStringRepresentationOfInterface(*raw)
+			m.formatInput.Model.focus = true
+			m.textInput.Model.focus = false
+			m.textInput.Model.SetValue("")
+			return
+		}
+	} else {
+		input = m.selectionText
+		original = m.formatInput.Original
+		if !(i == ":w" || i == ":wq" || i == ":s" || i == ":s!") {
+			m.textInput.Model.SetValue("")
+			return
+		}
+	}
+
+	if i == ":s" { // saves copy, default filename + :s _____ will save with that filename in cwd
 		exitToDefaultView(m)
 		newFileName, err := m.Serialize()
 		if err != nil {
@@ -44,8 +85,9 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, inp
 		} else {
 			m.DisplayMessage(fmt.Sprintf("Wrote copy of database to filepath %s.", newFileName))
 		}
+
 		return
-	} else if input == ":s!" { // overwrites original - should add confirmation dialog!
+	} else if i == ":s!" { // overwrites original - should add confirmation dialog!
 		exitToDefaultView(m)
 		err := m.SerializeOverwrite()
 		if err != nil {
@@ -53,26 +95,7 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, inp
 		} else {
 			m.DisplayMessage("Overwrite original database file with changes.")
 		}
-		return
-	} else if input == ":h" {
-		m.helpDisplay = true
-		m.DisplayMessage(GetHelpText())
-		return
-	} else if input == ":edit" {
-		if m.formatModeEnabled {
-			return
-		}
-		m.formatModeEnabled = true
-		m.editModeEnabled = false
-		if m.GetRow() >= len(col) {
-			m.editModeEnabled = false
-			return
-		}
 
-		m.selectionText = GetStringRepresentationOfInterface(*raw)
-		m.formatInput.Model.focus = true
-		m.textInput.Model.focus = false
-		m.textInput.Model.SetValue("")
 		return
 	}
 
@@ -112,13 +135,17 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, inp
 		break
 	}
 
-	original, _, _ := m.GetSelectedOption()
 	m.ProcessSqlQueryForDatabaseType(&Update{
 		Update: GetInterfaceFromString(input, original),
 	})
 
 	m.editModeEnabled = false
+	m.selectionText = ""
 	selectedInput.SetValue("")
 
 	*raw = input
+
+	if m.formatModeEnabled && i == ":wq" {
+		exitToDefaultView(m)
+	}
 }

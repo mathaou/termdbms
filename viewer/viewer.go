@@ -66,7 +66,6 @@ type FormatState struct {
 	Slices         []*string
 	Text           []string
 	RunningOffsets []int
-	NewlineCount   []int
 	CursorX        int
 	CursorY        int
 }

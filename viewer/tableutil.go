@@ -21,7 +21,6 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 			Slices:         nil,
 			Text:           nil,
 			RunningOffsets: nil,
-			NewlineCount:   nil,
 			CursorX:        0,
 			CursorY:        0,
 		},
@@ -99,8 +98,10 @@ func (m *TuiModel) GetColumn() int {
 // GetRow does math to get a valid row that's helpful
 func (m *TuiModel) GetRow() int {
 	baseVal := Max(m.mouseEvent.Y-headerHeight, 0)
-	if m.renderSelection || m.editModeEnabled || m.formatModeEnabled {
+	if m.renderSelection || m.editModeEnabled {
 		return m.viewport.YOffset + baseVal
+	} else if m.formatModeEnabled {
+		return m.viewport.YOffset
 	}
 	return baseVal
 }
@@ -138,13 +139,18 @@ func (m *TuiModel) SetViewSlices() {
 	m.TableHeadersSlice = headers
 
 	if m.formatModeEnabled {
+		defer func() {
+			if recover() != nil {
+				println("ass")
+			}
+		}()
 		var slices []*string
-		i := m.Format.CursorY
-		newlines := 0
-		for newlines < m.viewport.Height-headerHeight {
-			slices = append(slices, &m.Format.Text[Max(m.viewport.YOffset, 0)+i])
-			newlines += m.Format.NewlineCount[i]
-			i++
+		for i := 0; i < m.viewport.Height; i++ {
+			if m.viewport.YOffset+i > len(m.Format.Text)-1 {
+				break
+			}
+			pStr := &m.Format.Text[Max(m.viewport.YOffset+i, 0)]
+			slices = append(slices, pStr)
 		}
 		m.Format.Slices = slices
 		m.CanFormatScroll = len(m.Format.Text)-m.viewport.YOffset-m.viewport.Height > 0

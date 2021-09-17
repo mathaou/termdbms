@@ -4,6 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"strings"
 	"time"
 )
 
@@ -91,32 +92,12 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 				cmd = m.textInput.Model.Focus()
 				m.formatInput.Model.Blur()
 			}
+			return cmd
 		}
 
 		if m.textInput.Model.Focused() {
 			handleEditMode(m, str)
 		} else {
-			switch str {
-			case "pgdown":
-				l := len(m.Format.Text) - 1
-				for i := 0; i < m.viewport.Height && m.viewport.YOffset < l; i++ {
-					scrollDown(m)
-				}
-				break
-			case "pgup":
-				for i := 0; i < m.viewport.Height && m.viewport.YOffset > 0; i++ {
-					scrollUp(m)
-				}
-				break
-			case "home":
-				m.viewport.YOffset = 0
-				break
-			case "end":
-				m.viewport.YOffset = len(m.Format.Text) - m.viewport.Height
-				break
-			default:
-				break
-			}
 			handleFormatMode(m, str)
 		}
 
@@ -192,7 +173,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		}
 
 		str := GetStringRepresentationOfInterface(*raw)
-		if lipgloss.Width(str+m.textInput.Model.Prompt) > m.viewport.Width { // enter format view
+		if lipgloss.Width(str+m.textInput.Model.Prompt) > m.viewport.Width || strings.Count(str, "\n") > 0 { // enter format view
 			m.formatModeEnabled = true
 			m.editModeEnabled = false
 			m.textInput.Model.SetValue("")
@@ -201,8 +182,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 			m.textInput.Model.focus = false
 			cmd = m.formatInput.Model.Focus()
 			m.textInput.Model.Blur()
-			//m.selectionText = str
-			m.selectionText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis nec tortor eget metus aliquam ornare ac nec odio. Vestibulum quam mauris, malesuada sit amet tincidunt in, luctus eu tortor. Duis elementum turpis non lectus interdum, sed egestas erat aliquam. In hac habitasse platea dictumst. Phasellus consequat elit nec neque pharetra egestas. Nulla sodales interdum justo eu venenatis. Vestibulum gravida pretium sapien, sit amet lobortis neque finibus vitae. Fusce consectetur, augue a fringilla suscipit, mi massa placerat ipsum, et cursus risus orci at augue. Morbi nec venenatis orci. Ut maximus orci tincidunt, cursus mi vel, mattis elit. In elementum non lacus non accumsan. Sed felis diam, ornare et arcu a, sollicitudin convallis neque.\n\nSed ut nulla at ex pellentesque vestibulum ut sit amet massa. Vivamus luctus tristique aliquet. Donec in risus ligula. In hac habitasse platea dictumst. Nullam hendrerit pellentesque felis, id mollis libero pretium eget. Nulla vestibulum id purus id dignissim. Ut arcu neque, viverra ac lectus in, aliquet malesuada augue. Curabitur aliquam vestibulum ullamcorper. Pellentesque ac imperdiet risus. Aliquam iaculis massa felis, vitae mollis ex placerat in. Aenean eu turpis quis massa sollicitudin pulvinar. Aliquam luctus euismod sapien at ullamcorper. Morbi placerat, dolor sit amet ultrices vulputate, arcu metus posuere nisi, id bibendum augue urna dapibus mauris. Phasellus condimentum ultrices interdum. Fusce tincidunt mauris sit amet facilisis sodales.\n\nSed non arcu sit amet massa luctus vehicula in in mauris. In vel fermentum quam. Nam eget elit vehicula, facilisis libero non, porttitor mi. Aenean euismod placerat risus, vitae condimentum libero lobortis vel. Quisque bibendum quis mi eget pharetra. Aenean pretium vitae augue non luctus. Phasellus malesuada nisi vel quam porta, vel suscipit ex lacinia. Nunc venenatis magna sit amet lectus cursus convallis. Morbi metus dui, condimentum ut aliquam vel, lacinia id nibh.\n\nVestibulum ut condimentum lorem. Aliquam est tortor, euismod quis bibendum ut, egestas id odio. Fusce consectetur vel tortor sed tempor. Aliquam erat volutpat. Etiam hendrerit tellus mi, quis vestibulum mi semper ac. Praesent porta justo eu justo vestibulum consectetur. Aliquam venenatis dignissim pulvinar. Ut id condimentum felis. In sit amet lacinia quam, et mollis odio. Integer nec mi arcu. Aenean molestie lacus id orci viverra, nec tempor neque accumsan. Donec nec ligula nisi. Nulla facilisi. Aliquam erat volutpat.\n\nSed convallis tristique molestie. Morbi pulvinar ullamcorper ante. Donec et molestie leo, vitae elementum arcu. Mauris in ligula condimentum, auctor neque a, viverra risus. Proin ut ligula dolor. Donec nunc ipsum, sodales ac dignissim at, tempus in mauris. Quisque scelerisque rutrum nisi nec dignissim. Curabitur blandit tincidunt aliquam. Maecenas eget varius nisi, non lacinia lacus."
+			m.selectionText = str
+			//m.selectionText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis nec tortor eget metus aliquam ornare ac nec odio. Vestibulum quam mauris, malesuada sit amet tincidunt in, luctus eu tortor. Duis elementum turpis non lectus interdum, sed egestas erat aliquam. In hac habitasse platea dictumst. Phasellus consequat elit nec neque pharetra egestas. Nulla sodales interdum justo eu venenatis. Vestibulum gravida pretium sapien, sit amet lobortis neque finibus vitae. Fusce consectetur, augue a fringilla suscipit, mi massa placerat ipsum, et cursus risus orci at augue. Morbi nec venenatis orci. Ut maximus orci tincidunt, cursus mi vel, mattis elit. In elementum non lacus non accumsan. Sed felis diam, ornare et arcu a, sollicitudin convallis neque.\n\nSed ut nulla at ex pellentesque vestibulum ut sit amet massa. Vivamus luctus tristique aliquet. Donec in risus ligula. In hac habitasse platea dictumst. Nullam hendrerit pellentesque felis, id mollis libero pretium eget. Nulla vestibulum id purus id dignissim. Ut arcu neque, viverra ac lectus in, aliquet malesuada augue. Curabitur aliquam vestibulum ullamcorper. Pellentesque ac imperdiet risus. Aliquam iaculis massa felis, vitae mollis ex placerat in. Aenean eu turpis quis massa sollicitudin pulvinar. Aliquam luctus euismod sapien at ullamcorper. Morbi placerat, dolor sit amet ultrices vulputate, arcu metus posuere nisi, id bibendum augue urna dapibus mauris. Phasellus condimentum ultrices interdum. Fusce tincidunt mauris sit amet facilisis sodales.\n\nSed non arcu sit amet massa luctus vehicula in in mauris. In vel fermentum quam. Nam eget elit vehicula, facilisis libero non, porttitor mi. Aenean euismod placerat risus, vitae condimentum libero lobortis vel. Quisque bibendum quis mi eget pharetra. Aenean pretium vitae augue non luctus. Phasellus malesuada nisi vel quam porta, vel suscipit ex lacinia. Nunc venenatis magna sit amet lectus cursus convallis. Morbi metus dui, condimentum ut aliquam vel, lacinia id nibh.\n\nVestibulum ut condimentum lorem. Aliquam est tortor, euismod quis bibendum ut, egestas id odio. Fusce consectetur vel tortor sed tempor. Aliquam erat volutpat. Etiam hendrerit tellus mi, quis vestibulum mi semper ac. Praesent porta justo eu justo vestibulum consectetur. Aliquam venenatis dignissim pulvinar. Ut id condimentum felis. In sit amet lacinia quam, et mollis odio. Integer nec mi arcu. Aenean molestie lacus id orci viverra, nec tempor neque accumsan. Donec nec ligula nisi. Nulla facilisi. Aliquam erat volutpat.\n\nSed convallis tristique molestie. Morbi pulvinar ullamcorper ante. Donec et molestie leo, vitae elementum arcu. Mauris in ligula condimentum, auctor neque a, viverra risus. Proin ut ligula dolor. Donec nunc ipsum, sodales ac dignissim at, tempus in mauris. Quisque scelerisque rutrum nisi nec dignissim. Curabitur blandit tincidunt aliquam. Maecenas eget varius nisi, non lacinia lacus."
 			m.formatInput.Original = raw
 			m.Format.Text = getFormattedTextBuffer(m)
 			m.SetViewSlices()
