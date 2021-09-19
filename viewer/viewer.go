@@ -262,7 +262,7 @@ func (m TuiModel) View() string {
 				Render("¯"),
 				m.viewport.Width)
 			headerMid := strings.Join(builder, "")
-			headerMid = headerMid + strings.Repeat(" ", m.viewport.Width)
+			//headerMid = headerMid + strings.Repeat(" ", m.viewport.Width)
 			*h = fmt.Sprintf("%s\n%s\n%s",
 				headerTop,
 				headerMid,

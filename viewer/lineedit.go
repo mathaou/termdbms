@@ -38,7 +38,6 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 		original *interface{}
 		input    string
 	)
-	raw, _, col := m.GetSelectedOption()
 
 	if i == ":q" { // quit mod mode
 		exitToDefaultView(m)
@@ -46,26 +45,26 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 	}
 	if !m.formatModeEnabled {
 		input = i
+		raw, _, _ := m.GetSelectedOption()
 		original = raw
 		if input == ":h" {
 			m.helpDisplay = true
 			m.DisplayMessage(GetHelpText())
 			return
 		} else if input == ":edit" {
-			if m.formatModeEnabled {
-				return
-			}
+			str := GetStringRepresentationOfInterface(*original)
 			m.formatModeEnabled = true
 			m.editModeEnabled = false
-			if m.GetRow() >= len(col) {
-				m.editModeEnabled = false
-				return
-			}
-
-			m.selectionText = GetStringRepresentationOfInterface(*raw)
+			m.textInput.Model.SetValue("")
+			m.formatInput.Model.SetValue("") // TODO likely not necessary
 			m.formatInput.Model.focus = true
 			m.textInput.Model.focus = false
-			m.textInput.Model.SetValue("")
+			m.textInput.Model.Blur()
+			m.selectionText = str
+			m.formatInput.Original = original
+			m.Format.Text = getFormattedTextBuffer(m)
+			m.SetViewSlices()
+			m.formatInput.Model.setCursor(0)
 			return
 		}
 	} else {
@@ -93,13 +92,13 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 		if err != nil {
 			m.DisplayMessage(fmt.Sprintf("%v", err))
 		} else {
-			m.DisplayMessage("Overwrite original database file with changes.")
+			m.DisplayMessage("Overwrote original database file with changes.")
 		}
 
 		return
 	}
 
-	if *raw == input {
+	if *original == input {
 		exitToDefaultView(m)
 		return
 	}
@@ -141,9 +140,9 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 
 	m.editModeEnabled = false
 	m.selectionText = ""
-	selectedInput.SetValue("")
+	m.formatInput.Model.SetValue("")
 
-	*raw = input
+	*original = input
 
 	if m.formatModeEnabled && i == ":wq" {
 		exitToDefaultView(m)

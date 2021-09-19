@@ -82,7 +82,7 @@ func toggleColumn(m *TuiModel) {
 
 // scrollDown is a simple function to move the viewport down
 func scrollDown(m *TuiModel) {
-	if m.formatModeEnabled && m.CanFormatScroll {
+	if m.formatModeEnabled && m.CanFormatScroll && m.viewport.YPosition != 0 {
 		m.viewport.YOffset++
 		return
 	}
@@ -102,7 +102,7 @@ func scrollDown(m *TuiModel) {
 
 // scrollUp is a simple function to move the viewport up
 func scrollUp(m *TuiModel) {
-	if m.formatModeEnabled && m.CanFormatScroll && m.viewport.YOffset > 0 {
+	if m.formatModeEnabled && m.CanFormatScroll && m.viewport.YOffset > 0 && m.viewport.YPosition != 0 {
 		m.viewport.YOffset--
 		return
 	}
@@ -235,7 +235,7 @@ func displayFormatBuffer(m *TuiModel) string {
 	newY := ""
 	line := &cpy[m.Format.CursorY]
 	x := 0
-	offset := getOffsetForLineNumber(m.Format.CursorY)
+	offset := formatModeOffset - 1
 	for _, r := range *line {
 		newY += string(r)
 		if x == m.Format.CursorX+offset {

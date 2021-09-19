@@ -97,6 +97,12 @@ func handleEditMovement(m *TuiModel, str, val string) (ret bool) {
 }
 
 func handleFormatMovement(m *TuiModel, str string) (ret bool) {
+	lines := 0
+	for _, v := range m.Format.Slices {
+		if *v != "" {
+			lines++
+		}
+	}
 	switch str {
 	case "pgdown":
 		l := len(m.Format.Text) - 1
@@ -122,7 +128,7 @@ func handleFormatMovement(m *TuiModel, str string) (ret bool) {
 		offset := getOffsetForLineNumber(m.Format.CursorY)
 		x := m.Format.CursorX + offset + 1 // for the space at the end
 		l := len(*m.Format.Slices[m.Format.CursorY])
-		maxY := len(m.Format.Slices) - 1
+		maxY := lines - 1
 		if l < x && m.Format.CursorY < maxY {
 			m.Format.CursorX = 0
 			m.Format.CursorY++
@@ -173,7 +179,7 @@ func handleFormatMovement(m *TuiModel, str string) (ret bool) {
 		break
 	case "down":
 		ret = true
-		if m.Format.CursorY < m.viewport.Height-footerHeight && m.Format.CursorY < len(m.Format.Slices) {
+		if m.Format.CursorY < m.viewport.Height-footerHeight && m.Format.CursorY < lines-1 {
 			m.Format.CursorY++
 		} else {
 			scrollDown(m)
@@ -188,7 +194,22 @@ func handleFormatMovement(m *TuiModel, str string) (ret bool) {
 func handleFormatInput(m *TuiModel, str string) (ret bool) {
 	switch str {
 	case "enter":
-
+		yOffset := Max(m.viewport.YOffset, 0)
+		cursor := m.Format.RunningOffsets[m.Format.CursorY+yOffset] + m.Format.CursorX
+		runes := []rune(m.selectionText)
+		min := Max(cursor, 0)
+		min = Min(min, len(m.selectionText))
+		first := runes[:min]
+		last := runes[min:]
+		m.selectionText = string(first) + "\n" + string(last)
+		if yOffset+m.viewport.Height == len(m.Format.Text) {
+			m.viewport.YOffset++
+		} else {
+			m.Format.CursorY++
+		}
+		m.Format.Text = getFormattedTextBuffer(m)
+		m.SetViewSlices()
+		ret = true
 		break
 	case "backspace":
 		cursor := m.Format.CursorX + formatModeOffset
@@ -208,7 +229,8 @@ func handleFormatInput(m *TuiModel, str string) (ret bool) {
 
 			break
 		} else if m.Format.CursorY > 0 && m.Format.CursorX == 0 {
-			cursor := m.Format.RunningOffsets[m.Format.CursorY+m.viewport.YOffset] + m.Format.CursorX
+			yOffset := Max(m.viewport.YOffset, 0)
+			cursor := m.Format.RunningOffsets[m.Format.CursorY+yOffset] + m.Format.CursorX
 			runes := []rune(m.selectionText)
 			newline := runes[cursor]
 			if newline == '\n' {
@@ -217,13 +239,14 @@ func handleFormatInput(m *TuiModel, str string) (ret bool) {
 				first := runes[:min-1]
 				last := runes[min:]
 				m.selectionText = string(first) + string(last)
-				if m.viewport.YOffset+m.viewport.Height == len(m.Format.Text) {
+				if yOffset+m.viewport.Height == len(m.Format.Text) && yOffset > 0 {
 					m.viewport.YOffset--
+				} else {
+					m.Format.CursorY--
 				}
 				m.Format.Text = getFormattedTextBuffer(m)
 				m.SetViewSlices()
-				m.Format.CursorY--
-				m.Format.CursorX = m.Format.RunningOffsets[m.Format.CursorY] - 1
+				//m.Format.CursorX = m.Format.RunningOffsets[m.Format.CursorY] - 1
 				ret = true
 			}
 		} else {
@@ -285,7 +308,7 @@ func handleFormatMode(m *TuiModel, str string) {
 	middle := strings.TrimSpace(val[lineNumberOffset:])
 	last := replacement[m.Format.RunningOffsets[lIndex]:]
 
-	if !validJson {
+	if !validJson && (first != "" || last != "") {
 		middle += "\n"
 	}
 

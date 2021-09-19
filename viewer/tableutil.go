@@ -101,7 +101,7 @@ func (m *TuiModel) GetRow() int {
 	if m.renderSelection || m.editModeEnabled {
 		return m.viewport.YOffset + baseVal
 	} else if m.formatModeEnabled {
-		return m.viewport.YOffset
+		return m.preScrollYOffset + baseVal
 	}
 	return baseVal
 }
@@ -117,46 +117,42 @@ func (m *TuiModel) GetHeaders() []string {
 }
 
 func (m *TuiModel) SetViewSlices() {
-	// header slices
-	headers := m.TableHeaders[m.GetSchemaName()]
-	headersLen := len(headers)
-
-	if headersLen > maxHeaders {
-		headers = headers[m.scrollXOffset : maxHeaders+m.scrollXOffset-1]
-	}
-
-	// data slices
-	for _, columnName := range headers {
-		interfaceValues := m.GetSchemaData()[columnName]
-		if len(interfaceValues) >= m.viewport.Height {
-			min := Min(m.viewport.YOffset, len(interfaceValues)-m.viewport.Height)
-			m.DataSlices[columnName] = interfaceValues[min : m.viewport.Height+min]
-		} else {
-			m.DataSlices[columnName] = interfaceValues
-		}
-	}
-
-	m.TableHeadersSlice = headers
-
 	if m.formatModeEnabled {
-		defer func() {
-			if recover() != nil {
-				println("ass")
-			}
-		}()
 		var slices []*string
 		for i := 0; i < m.viewport.Height; i++ {
-			if m.viewport.YOffset+i > len(m.Format.Text)-1 {
+			yOffset := Max(m.viewport.YOffset, 0)
+			if yOffset+i > len(m.Format.Text)-1 {
 				break
 			}
-			pStr := &m.Format.Text[Max(m.viewport.YOffset+i, 0)]
+			pStr := &m.Format.Text[Max(yOffset+i, 0)]
 			slices = append(slices, pStr)
 		}
 		m.Format.Slices = slices
 		m.CanFormatScroll = len(m.Format.Text)-m.viewport.YOffset-m.viewport.Height > 0
-		if m.Format.CursorX < 0 { // TODO hack fix
+		if m.Format.CursorX < 0 {
 			m.Format.CursorX = 0
 		}
+	} else {
+		// header slices
+		headers := m.TableHeaders[m.GetSchemaName()]
+		headersLen := len(headers)
+
+		if headersLen > maxHeaders {
+			headers = headers[m.scrollXOffset : maxHeaders+m.scrollXOffset-1]
+		}
+
+		// data slices
+		for _, columnName := range headers {
+			interfaceValues := m.GetSchemaData()[columnName]
+			if len(interfaceValues) >= m.viewport.Height {
+				min := Min(m.viewport.YOffset, len(interfaceValues)-m.viewport.Height)
+				m.DataSlices[columnName] = interfaceValues[min : m.viewport.Height+min]
+			} else {
+				m.DataSlices[columnName] = interfaceValues
+			}
+		}
+
+		m.TableHeadersSlice = headers
 	}
 	// format slices
 }
@@ -187,8 +183,10 @@ func (m *TuiModel) GetRowData() map[string]interface{} {
 }
 
 func (m *TuiModel) GetSelectedOption() (*interface{}, int, []interface{}) {
-	m.preScrollYOffset = m.viewport.YOffset
-	m.preScrollYPosition = m.mouseEvent.Y
+	if !m.formatModeEnabled {
+		m.preScrollYOffset = m.viewport.YOffset
+		m.preScrollYPosition = m.mouseEvent.Y
+	}
 	row := m.GetRow()
 	col := m.GetColumnData()
 	if row >= len(col) {
