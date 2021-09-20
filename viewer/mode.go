@@ -2,11 +2,13 @@ package viewer
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"strings"
 )
 
 var (
 	inputBlacklist = []string{
-		"alt+[",
+		"alt+",
+		"ctrl+",
 		"up",
 		"down",
 		"tab",
@@ -314,7 +316,7 @@ func handleFormatMode(m *TuiModel, str string) {
 	}
 
 	for _, v := range inputBlacklist {
-		if str == v {
+		if strings.Contains(str, v) {
 			return
 		}
 	}
@@ -411,7 +413,7 @@ func handleEditMode(m *TuiModel, str string) {
 	}
 
 	for _, v := range inputBlacklist {
-		if str == v {
+		if strings.Contains(str, v) {
 			return
 		}
 	}
