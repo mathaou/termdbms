@@ -131,7 +131,13 @@ func FileExists(name string) (bool, error) {
 
 func SplitLines(s string) []string {
 	var lines []string
-	sc := bufio.NewScanner(strings.NewReader(s))
+	if strings.Count(s, "\n") == 0 {
+		return append(lines, s)
+	}
+
+	reader := strings.NewReader(s)
+	sc := bufio.NewScanner(reader)
+
 	for sc.Scan() {
 		lines = append(lines, sc.Text())
 	}

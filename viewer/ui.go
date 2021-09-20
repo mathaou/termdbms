@@ -28,6 +28,9 @@ func selectOption(m *TuiModel) {
 
 	m.renderSelection = true
 	raw, _, col := m.GetSelectedOption()
+	if raw == nil {
+		return
+	}
 	l := len(col)
 	row := m.viewport.YOffset + m.mouseEvent.Y - headerHeight
 
@@ -36,11 +39,7 @@ func selectOption(m *TuiModel) {
 		m.mouseEvent.Y < m.viewport.Height+headerHeight &&
 		m.mouseEvent.X < m.CellWidth()*(len(m.TableHeadersSlice)) {
 		if conv, ok := (*raw).(string); ok {
-			if format, err := formatJson(conv); err == nil {
-				m.selectionText = format
-			} else {
-				m.selectionText = conv
-			}
+			m.selectionText = conv
 		} else {
 			m.selectionText = ""
 		}
@@ -173,50 +172,37 @@ func displayTable(m *TuiModel) string {
 
 func getFormattedTextBuffer(m *TuiModel) []string {
 	v := m.selectionText
-	validJson := false
-	if format, err := formatJson(v); err == nil {
-		v = format
-		validJson = true
-	}
 
 	lines := SplitLines(v)
 	formatModeOffset = len(strconv.Itoa(len(lines))) + 1 // number of characters in the numeric string
-	lineLength := len(lines)
 
 	var ret []string
-	m.Format.RunningOffsets = make([]int, lineLength+1)
+	m.Format.RunningOffsets = []int{}
 
 	total := 0
 	strlen := 0
 	for i, v := range lines {
 		xOffset := len(strconv.Itoa(i))
 		totalOffset := Max(formatModeOffset-xOffset, 0)
-
-		// TODO get line wrapping working. This will be a LOT of work.
 		//wrap := wordwrap.String(v, m.viewport.Width-totalOffset)
+
 		right := Indent(
 			v,
 			fmt.Sprintf("%d%s", i, strings.Repeat(" ", totalOffset)),
 			false)
 		ret = append(ret, right)
-		m.Format.RunningOffsets[i] = total
+		m.Format.RunningOffsets = append(m.Format.RunningOffsets, total)
 
-		if validJson {
-			strlen = len(strings.TrimSpace(v))
-		} else {
-			strlen = len(v)
-		}
+		strlen = len(v)
 
-		total += strlen
-		if strlen > 1 && validJson { // TODO: investigate why this is necessary
-			total--
-		} else {
-			total++
-		}
+		total += strlen + 1
 	}
 
+	lineLength := len(ret)
 	// need to add this so that the last line can be edited
-	m.Format.RunningOffsets[lineLength] = m.Format.RunningOffsets[lineLength-1] + len(ret[len(ret)-1][formatModeOffset:])
+	m.Format.RunningOffsets = append(m.Format.RunningOffsets,
+		m.Format.RunningOffsets[lineLength-1]+
+			len(ret[len(ret)-1][formatModeOffset:]))
 
 	for i := len(ret); i < m.viewport.Height; i++ {
 		ret = append(ret, "")
@@ -231,7 +217,7 @@ func displayFormatBuffer(m *TuiModel) string {
 		cpy[i] = *v
 	}
 	newY := ""
-	line := &cpy[m.Format.CursorY]
+	line := &cpy[Min(m.Format.CursorY, len(cpy)-1)]
 	x := 0
 	offset := formatModeOffset - 1
 	for _, r := range *line {
@@ -260,17 +246,27 @@ func displayFormatBuffer(m *TuiModel) string {
 // displaySelection does that or writes it to a file if the selection is over a limit
 func displaySelection(m *TuiModel) string {
 	col := m.GetColumnData()
-	m.expandColumn = m.GetColumn()
 	row := m.GetRow()
-	if m.mouseEvent.Y >= m.viewport.Height+headerHeight && !m.renderSelection { // this is for when the selection is outside the bounds
+	m.expandColumn = m.GetColumn()
+	if m.mouseEvent.Y >= m.viewport.Height+headerHeight &&
+		!m.renderSelection { // this is for when the selection is outside the bounds
 		return displayTable(m)
 	}
 
 	base := m.GetBaseStyle()
 
 	if m.selectionText != "" { // this is basically just if its a string follow these rules
-		rows := SplitLines(wordwrap.String(m.selectionText, m.viewport.Width))
-		rows = rows[m.viewport.YOffset:Min(len(rows), m.viewport.Height+m.viewport.YOffset)]
+		conv := m.selectionText
+		if c, err := formatJson(m.selectionText); err == nil {
+			conv = c
+		}
+		rows := SplitLines(wordwrap.String(conv, m.viewport.Width))
+		min := 0
+		if len(rows) > m.viewport.Height {
+			min = m.viewport.YOffset
+		}
+		max := min + m.viewport.Height
+		rows = rows[min:Min(len(rows), max)]
 
 		for len(rows) < m.viewport.Height {
 			rows = append(rows, "")

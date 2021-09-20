@@ -172,6 +172,11 @@ func (m *TuiModel) GetColumnData() []interface{} {
 }
 
 func (m *TuiModel) GetRowData() map[string]interface{} {
+	defer func() {
+		if recover() != nil {
+			println("Whoopsy!") // TODO, this happened once
+		}
+	}()
 	headers := m.GetHeaders()
 	schema := m.GetSchemaData()
 	data := make(map[string]interface{})

@@ -2,7 +2,6 @@ package viewer
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"strings"
 )
 
 var (
@@ -12,20 +11,32 @@ var (
 		"down",
 		"tab",
 		"left",
+		"enter",
 		"right",
 		"pgdown",
 		"pgup",
 	}
 )
 
+func prepareFormatMode(m *TuiModel) {
+	m.formatModeEnabled = true
+	m.editModeEnabled = false
+	m.textInput.Model.SetValue("")
+	m.formatInput.Model.SetValue("")
+	m.formatInput.Model.focus = true
+	m.textInput.Model.focus = false
+	m.textInput.Model.Blur()
+}
+
 func moveCursorWithinBounds(m *TuiModel) {
 	defer func() {
 		if recover() != nil {
-			println("ass")
+			println("whoopsy")
 		}
 	}()
 	offset := getOffsetForLineNumber(m.Format.CursorY)
 	l := len(*m.Format.Slices[m.Format.CursorY])
+
 	end := l - 1 - offset
 	if m.Format.CursorX > end {
 		m.Format.CursorX = end
@@ -114,17 +125,26 @@ func handleFormatMovement(m *TuiModel, str string) (ret bool) {
 		for i := 0; i < m.viewport.Height && m.viewport.YOffset < l; i++ {
 			scrollDown(m)
 		}
+		ret = true
 		break
 	case "pgup":
-		for i := 0; i < m.viewport.Height && m.viewport.YOffset > 0; i++ {
+		for i := 0; i <
+			m.viewport.Height && m.viewport.YOffset > 0; i++ {
 			scrollUp(m)
 		}
+		ret = true
 		break
 	case "home":
 		m.viewport.YOffset = 0
+		m.Format.CursorX = 0
+		m.Format.CursorY = 0
+		ret = true
 		break
 	case "end":
 		m.viewport.YOffset = len(m.Format.Text) - m.viewport.Height
+		m.Format.CursorY = m.viewport.Height - footerHeight
+		m.Format.CursorX = m.Format.RunningOffsets[len(m.Format.RunningOffsets)-1]
+		ret = true
 		break
 	case "right":
 		ret = true
@@ -194,31 +214,52 @@ func handleFormatMovement(m *TuiModel, str string) (ret bool) {
 	return ret
 }
 
-//TODO: format mode delete/insert doesn't work
+func insertCharacter(m *TuiModel, newlineOrTab string) {
+	yOffset := Max(m.viewport.YOffset, 0)
+	cursor := m.Format.RunningOffsets[m.Format.CursorY+yOffset] + m.Format.CursorX
+	runes := []rune(m.selectionText)
+	if runes[Min(cursor, len(runes)-1)] == '\n' && newlineOrTab == "\t" {
+		return
+	}
+	min := Max(cursor, 0)
+	min = Min(min, len(m.selectionText))
+	first := runes[:min]
+	last := runes[min:]
+	f := string(first)
+	l := string(last)
+	m.selectionText = f + newlineOrTab + l
+	if len(last) == 0 { // for whatever reason, if you don't double up on newlines if appending to end, it gets removed
+		m.selectionText += newlineOrTab
+	}
+	numLines := 0
+	for _, v := range m.Format.Text {
+		if v != "" { // ignore padding
+			numLines++
+		}
+	}
+	if yOffset+m.viewport.Height == numLines && newlineOrTab == "\n" {
+		m.viewport.YOffset++
+	} else if newlineOrTab == "\n" {
+		m.Format.CursorY++
+	}
 
-func handleFormatInput(m *TuiModel, str string) (ret bool) {
+	m.Format.Text = getFormattedTextBuffer(m)
+	m.SetViewSlices()
+	if newlineOrTab == "\n" {
+		m.Format.CursorX = 0
+	} else {
+		m.Format.CursorX++
+	}
+}
+
+func handleFormatInput(m *TuiModel, str string) bool {
 	switch str {
+	case "tab":
+		insertCharacter(m, "\t")
+		return true
 	case "enter":
-		yOffset := Max(m.viewport.YOffset, 0)
-		cursor := m.Format.RunningOffsets[m.Format.CursorY+yOffset] + m.Format.CursorX
-		runes := []rune(m.selectionText)
-		min := Max(cursor, 0)
-		min = Min(min, len(m.selectionText))
-		first := runes[:min]
-		last := runes[min:]
-		if len(last) == 0 {
-			return // TODO can't add newline to end
-		}
-		m.selectionText = string(first) + "\n" + string(last)
-		if yOffset+m.viewport.Height == len(m.Format.Text) {
-			m.viewport.YOffset++
-		} else {
-			m.Format.CursorY++
-		}
-		m.Format.Text = getFormattedTextBuffer(m)
-		m.SetViewSlices()
-		ret = true
-		break
+		insertCharacter(m, "\n")
+		return true
 	case "backspace":
 		cursor := m.Format.CursorX + formatModeOffset
 		input := m.Format.Slices[m.Format.CursorY]
@@ -235,36 +276,29 @@ func handleFormatInput(m *TuiModel, str string) (ret bool) {
 				*input = string(first) + string(last)
 			}
 
-			break
+			return false
 		} else if m.Format.CursorY > 0 && m.Format.CursorX == 0 {
 			yOffset := Max(m.viewport.YOffset, 0)
 			cursor := m.Format.RunningOffsets[m.Format.CursorY+yOffset] + m.Format.CursorX
 			runes := []rune(m.selectionText)
-			newline := runes[cursor]
-			if newline == '\n' {
-				min := Max(cursor, 0)
-				min = Min(min, len(m.selectionText)-1)
-				first := runes[:min-1]
-				last := runes[min:]
-				m.selectionText = string(first) + string(last)
-				if yOffset+m.viewport.Height == len(m.Format.Text) && yOffset > 0 {
-					m.viewport.YOffset--
-				} else {
-					m.Format.CursorY--
-				}
-				m.Format.Text = getFormattedTextBuffer(m)
-				m.SetViewSlices()
-				//m.Format.CursorX = m.Format.RunningOffsets[m.Format.CursorY] - 1
-				ret = true
+			min := Max(cursor, 0)
+			min = Min(min, len(m.selectionText)-1)
+			first := runes[:min-1]
+			last := runes[min:]
+			m.selectionText = string(first) + string(last)
+			if yOffset+m.viewport.Height == len(m.Format.Text) && yOffset > 0 {
+				m.viewport.YOffset--
+			} else {
+				m.Format.CursorY--
 			}
-		} else {
-			ret = true
+			m.Format.Text = getFormattedTextBuffer(m)
+			m.SetViewSlices()
 		}
 
-		break
+		return true
 	}
 
-	return ret
+	return false
 }
 
 func handleFormatMode(m *TuiModel, str string) {
@@ -272,7 +306,10 @@ func handleFormatMode(m *TuiModel, str string) {
 		val         string
 		replacement string
 	)
-	if handleFormatMovement(m, str) || handleFormatInput(m, str) {
+
+	inputReturn := handleFormatInput(m, str)
+
+	if handleFormatMovement(m, str) {
 		return
 	}
 
@@ -302,9 +339,6 @@ func handleFormatMode(m *TuiModel, str string) {
 		val = *pString
 	}
 
-	_, err := formatJson(m.selectionText)
-	validJson := err == nil
-
 	// if json special rules
 	replacement = m.selectionText
 	cursor := m.Format.RunningOffsets[m.viewport.YOffset+m.Format.CursorY]
@@ -312,11 +346,17 @@ func handleFormatMode(m *TuiModel, str string) {
 	fIndex := Max(cursor, 0)
 	lIndex := m.viewport.YOffset + m.Format.CursorY + 1
 
-	first := replacement[:fIndex]
-	middle := strings.TrimSpace(val[lineNumberOffset:])
-	last := replacement[m.Format.RunningOffsets[lIndex]:]
+	defer func() {
+		if recover() != nil {
+			println("whoopsy!") // bug happened once, debug...
+		}
+	}()
 
-	if !validJson && (first != "" || last != "") {
+	first := replacement[:fIndex]
+	middle := val[lineNumberOffset+1:]
+	last := replacement[Min(m.Format.RunningOffsets[lIndex], len(replacement)):]
+
+	if (first != "" || last != "") && last != "\n" {
 		middle += "\n"
 	}
 
@@ -333,9 +373,14 @@ func handleFormatMode(m *TuiModel, str string) {
 
 	m.Format.CursorX += delta
 
+	if inputReturn {
+		return
+	}
+
 	for i := m.viewport.YOffset + m.Format.CursorY + 1; i < len(m.Format.RunningOffsets); i++ {
 		m.Format.RunningOffsets[i] += delta
 	}
+
 }
 
 // handleEditMode implementation is kind of jank, but we can clean it up later

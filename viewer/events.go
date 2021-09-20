@@ -26,7 +26,7 @@ func handleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
 		}
 		break
 	case tea.MouseLeft:
-		if !m.editModeEnabled && !m.formatModeEnabled {
+		if !m.editModeEnabled && !m.formatModeEnabled && m.GetRow() < len(m.GetColumnData()) {
 			selectOption(m)
 		}
 		break
@@ -173,23 +173,22 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		}
 
 		str := GetStringRepresentationOfInterface(*raw)
+		// so if the selected text is wider than viewport width or if it has newlines do format mode
 		if lipgloss.Width(str+m.textInput.Model.Prompt) > m.viewport.Width || strings.Count(str, "\n") > 0 { // enter format view
-			m.formatModeEnabled = true
-			m.editModeEnabled = false
-			m.textInput.Model.SetValue("")
-			m.formatInput.Model.SetValue("") // TODO likely not necessary
-			m.formatInput.Model.focus = true
-			m.textInput.Model.focus = false
+			prepareFormatMode(m)
 			cmd = m.formatInput.Model.Focus()
-			m.textInput.Model.Blur()
 			m.preScrollYOffset = m.viewport.YOffset
 			m.preScrollYPosition = m.mouseEvent.Y
-			m.selectionText = str
+			if conv, err := formatJson(str); err == nil { // if json prettify
+				m.selectionText = conv
+			} else {
+				m.selectionText = str
+			}
 			m.formatInput.Original = raw
 			m.Format.Text = getFormattedTextBuffer(m)
 			m.SetViewSlices()
 			m.formatInput.Model.setCursor(0)
-		} else {
+		} else { // otherwise, edit normally up top
 			m.textInput.Model.SetValue(str)
 			m.formatInput.Model.focus = false
 			m.textInput.Model.focus = true

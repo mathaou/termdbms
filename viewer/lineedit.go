@@ -3,6 +3,7 @@ package viewer
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 type EnterFunction func(m *TuiModel, selectedInput *TextInputModel, input string)
@@ -29,8 +30,7 @@ func exitToDefaultView(m *TuiModel) {
 }
 
 func BodyLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, input string) {
-	val := selectedInput.Value()
-	selectedInput.SetValue(val + "\n")
+	// UNUSED, newlines handled manually
 }
 
 func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i string) {
@@ -53,14 +53,20 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 			return
 		} else if input == ":edit" {
 			str := GetStringRepresentationOfInterface(*original)
-			m.formatModeEnabled = true
-			m.editModeEnabled = false
-			m.textInput.Model.SetValue("")
-			m.formatInput.Model.SetValue("") // TODO likely not necessary
-			m.formatInput.Model.focus = true
-			m.textInput.Model.focus = false
-			m.textInput.Model.Blur()
-			m.selectionText = str
+			prepareFormatMode(m)
+			if conv, err := formatJson(str); err == nil { // if json prettify
+				m.selectionText = conv
+			} else {
+				m.selectionText = str
+			}
+			m.formatInput.Original = original
+			m.Format.Text = getFormattedTextBuffer(m)
+			m.SetViewSlices()
+			m.formatInput.Model.setCursor(0)
+			return
+		} else if input == ":new" {
+			prepareFormatMode(m)
+			m.selectionText = "\n"
 			m.formatInput.Original = original
 			m.Format.Text = getFormattedTextBuffer(m)
 			m.SetViewSlices()
@@ -74,6 +80,11 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 			m.textInput.Model.SetValue("")
 			return
 		}
+	}
+
+	if *original == input {
+		exitToDefaultView(m)
+		return
 	}
 
 	if i == ":s" { // saves copy, default filename + :s _____ will save with that filename in cwd
@@ -95,11 +106,6 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 			m.DisplayMessage("Overwrote original database file with changes.")
 		}
 
-		return
-	}
-
-	if *original == input {
-		exitToDefaultView(m)
 		return
 	}
 
@@ -132,6 +138,13 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 		break
 	default:
 		break
+	}
+
+	if _, err := formatJson(input); err == nil { // if json prettify
+		input = strings.ReplaceAll(input, " ", "")
+		input = strings.ReplaceAll(input, "\n", "")
+		input = strings.ReplaceAll(input, "\t", "")
+		input = strings.ReplaceAll(input, "\r", "")
 	}
 
 	m.ProcessSqlQueryForDatabaseType(&Update{
