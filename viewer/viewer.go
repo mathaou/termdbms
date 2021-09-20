@@ -12,40 +12,79 @@ import (
 )
 
 var (
-	width          int
-	height         int
-	headerHeight   = 3
-	footerHeight   = 1
-	maxInputLength int
-	headerStyle    lipgloss.Style
-	InitialModel   *TuiModel
+	headerHeight      = 3
+	footerHeight      = 1
+	maxInputLength    int
+	headerStyle       lipgloss.Style
+	footerStyle       lipgloss.Style
+	headerBottomStyle lipgloss.Style
+	InitialModel      *TuiModel
 )
 
 const (
-	highlight                 = "#0168B3" // change to whatever
-	headerForeground          = "#231F20"
-	headerBorderBackground    = "#AAAAAA"
 	maximumRendererCharacters = math.MaxInt32
 )
 
+// styling functions
+var (
+	highlight = func() string {
+		return ThemesMap[SelectedTheme][highlightKey]
+	} // change to whatever
+	headerBackground = func() string {
+		return ThemesMap[SelectedTheme][headerBackgroundKey]
+	}
+	headerBorderBackground = func() string {
+		return ThemesMap[SelectedTheme][headerBorderBackgroundKey]
+	}
+	headerForeground = func() string {
+		return ThemesMap[SelectedTheme][headerForegroundKey]
+	}
+	footerForegroundColor = func() string {
+		return ThemesMap[SelectedTheme][footerForegroundColorKey]
+	}
+	headerBottomColor = func() string {
+		return ThemesMap[SelectedTheme][headerBottomColorKey]
+	}
+	headerTopForegroundColor = func() string {
+		return ThemesMap[SelectedTheme][headerTopForegroundColorKey]
+	}
+	borderColor = func() string {
+		return ThemesMap[SelectedTheme][borderColorKey]
+	}
+	textColor = func() string {
+		return ThemesMap[SelectedTheme][textColorKey]
+	}
+)
+
+// TableState holds everything needed to save/serialize state
 type TableState struct {
 	Database Database
 	Data     map[string]interface{}
 }
 
+type FormatState struct {
+	Slices         []*string
+	Text           []string
+	RunningOffsets []int
+	CursorX        int
+	CursorY        int
+}
+
 // TuiModel holds all the necessary state for this app to work the way I designed it to
 type TuiModel struct {
-	Table              TableState          // all non destructive changes are TableStates getting passed around
+	Table              TableState // all non-destructive changes are TableStates getting passed around
+	Format             FormatState
 	TableHeaders       map[string][]string // keeps track of which schema has which headers
 	TableHeadersSlice  []string
 	DataSlices         map[string][]interface{}
 	TableIndexMap      map[int]string // keeps the schemas in order
 	TableSelection     int
 	InitialFileName    string // used if saving destructively
+	CanFormatScroll    bool
 	ready              bool
-	renderSelection    bool   // render mode
-	helpDisplay        bool   // help display mode
-	editModeEnabled    bool   // edit mode
+	renderSelection    bool // render mode
+	helpDisplay        bool // help display mode
+	editModeEnabled    bool // edit mode
 	formatModeEnabled  bool
 	selectionText      string
 	preScrollYOffset   int
@@ -56,24 +95,50 @@ type TuiModel struct {
 	viewport           viewport.Model
 	tableStyle         lipgloss.Style
 	mouseEvent         tea.MouseEvent
-	textInput          TextInputModel
+	textInput          LineEdit
+	formatInput        LineEdit
 	UndoStack          []TableState
 	RedoStack          []TableState
 	err                error
+}
+
+func setStyles() {
+	headerStyle = lipgloss.NewStyle()
+	footerStyle = lipgloss.NewStyle()
+
+	headerBottomStyle = lipgloss.NewStyle().
+		Align(lipgloss.Center)
+
+	if !Ascii {
+		headerStyle = headerStyle.
+			Foreground(lipgloss.Color(headerTopForegroundColor()))
+
+		footerStyle = footerStyle.
+			Foreground(lipgloss.Color(footerForegroundColor()))
+
+		headerBottomStyle = headerBottomStyle.
+			Foreground(lipgloss.Color(headerBottomColor()))
+	}
 }
 
 // INIT UPDATE AND RENDER
 
 // Init currently doesn't do anything but necessary for interface adherence
 func (m TuiModel) Init() tea.Cmd {
-	headerStyle = lipgloss.NewStyle().
-		Faint(true)
+	setStyles()
 
 	return nil
 }
 
 // Update is where all commands and whatnot get processed
 func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
+	//if !m.formatModeEnabled {
+	//	m.formatModeEnabled = true
+	//	m.editModeEnabled = false
+	//	m.selectionText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed commodo, elit at scelerisque consequat, lectus ex semper turpis, a posuere mauris neque a odio. Nam at placerat elit. Suspendisse potenti. Nullam lorem felis, fringilla vitae commodo at, vestibulum quis lacus. Phasellus iaculis elementum enim, eu lobortis lacus imperdiet at. Praesent a hendrerit nisl. Mauris faucibus, mi non posuere porta, turpis risus posuere dolor, at tempor dolor sapien vitae eros. Ut non efficitur enim, eu pretium tortor. In et laoreet magna. Etiam dignissim viverra convallis. Suspendisse ac nibh velit. Nulla facilisis vestibulum nibh vitae venenatis. Vivamus ornare, justo hendrerit blandit ultrices, metus diam aliquet urna, et sollicitudin ante odio quis ex. Duis non luctus augue, ac fringilla eros.\n\nNunc at dolor arcu. Nullam quis velit id purus bibendum tincidunt bibendum vel nunc. Maecenas imperdiet aliquam mauris a tincidunt. Praesent faucibus sapien nec massa posuere, ac placerat enim viverra. Quisque a condimentum velit, id feugiat lectus. Vivamus iaculis magna ante. Nulla interdum tristique justo, ac blandit dolor rutrum vel. Maecenas id tristique leo.\n\nProin lobortis finibus nibh, vitae porttitor tortor. Duis rutrum, eros ac fringilla scelerisque, nisi velit tristique odio, facilisis fermentum quam enim et risus. In tempus ipsum a erat posuere, quis varius ex hendrerit. Donec suscipit nec nulla sed dictum. Aenean venenatis augue quam. In nunc leo, fringilla vel justo et, sodales tempor libero. Cras sit amet nulla vel elit aliquet facilisis ac nec leo. Quisque interdum, enim et porttitor condimentum, nunc erat efficitur orci, id mattis diam arcu porttitor urna. Ut consectetur mi eu urna gravida lacinia a vel diam. Sed posuere, ante ac scelerisque sollicitudin, nisl dolor mollis nulla, quis commodo massa eros ut neque. Nam tempus dui et est congue blandit.\n\nIn quis posuere diam, at efficitur orci. Nullam vulputate, tortor sed fringilla pretium, massa massa congue justo, quis consectetur justo sapien non odio. Praesent pulvinar non magna a mattis. Cras efficitur mauris eu pretium eleifend. Vestibulum fringilla scelerisque neque ac blandit. Ut sagittis congue tellus et viverra. Sed cursus augue id lobortis accumsan.\n\nNulla et justo eu ligula blandit volutpat. Sed cursus nunc elit, id consequat enim fringilla ac. Fusce sagittis fermentum magna at cursus. Donec metus est, vestibulum vel porttitor vitae, imperdiet non purus. Vestibulum aliquet scelerisque lobortis. Nullam sed dolor id libero interdum dignissim. Fusce porttitor id est in pretium. Donec non faucibus ipsum. Ut mattis orci tincidunt sapien commodo, quis euismod mi condimentum. Phasellus non eros felis. Etiam pellentesque ut massa id suscipit. Praesent viverra mauris in ultrices semper. Nam ante sem, sollicitudin nec mauris ut, euismod hendrerit justo. Curabitur placerat luctus lorem sit amet scelerisque. Suspendisse luctus tellus vitae felis fermentum luctus. Morbi dolor est, convallis ac ex sit amet, viverra dapibus ante."
+	//	m.formatInput.Model.focus = true
+	//	m.textInput.Model.focus = false
+	//}
 	var (
 		cmd  tea.Cmd
 		cmds []tea.Cmd
@@ -100,13 +165,16 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			s != "n" {
 			break
 		}
-		if s == "ctrl+c" || (s == "q" && !m.editModeEnabled) {
+		if s == "ctrl+c" || (s == "q" && (!m.editModeEnabled && !m.formatModeEnabled)) {
 			return m, tea.Quit
 		}
 
 		handleKeyboardEvents(&m, &msg)
 		if !m.editModeEnabled && m.ready {
 			m.SetViewSlices()
+			if m.formatModeEnabled {
+				moveCursorWithinBounds(&m)
+			}
 		}
 
 		break
@@ -115,7 +183,9 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.viewport, _ = m.viewport.Update(message)
+	if !m.formatModeEnabled {
+		m.viewport, _ = m.viewport.Update(message)
+	}
 
 	if m.viewport.HighPerformanceRendering {
 		cmds = append(cmds, cmd)
@@ -147,10 +217,15 @@ func (m TuiModel) View() string {
 			builder []string
 		)
 
-		style := m.GetBaseStyle().
-			Width(m.CellWidth()).
-			Foreground(lipgloss.Color(headerForeground)).
-			Background(lipgloss.Color(headerBorderBackground))
+		style := m.GetBaseStyle()
+
+		if !Ascii {
+			// for column headers
+			style = style.Foreground(lipgloss.Color(headerForeground())).
+				BorderBackground(lipgloss.Color(headerBorderBackground())).
+				Background(lipgloss.Color(headerBackground())).
+				PaddingLeft(1)
+		}
 		headers := m.TableHeadersSlice
 		for i, d := range headers { // write all headers
 			if m.expandColumn != -1 && i != m.expandColumn {
@@ -166,31 +241,30 @@ func (m TuiModel) View() string {
 			// schema name
 			var headerTop string
 
-			if m.editModeEnabled {
-				headerTop = m.textInput.View()
+			if m.editModeEnabled || m.formatModeEnabled {
+				headerTop = m.textInput.Model.View()
+				if !m.textInput.Model.Focused() {
+					headerTop = headerStyle.Copy().Faint(true).Render(headerTop)
+				}
 			} else {
 				headerTop = fmt.Sprintf("%s (%d/%d) - %d record(s) + %d column(s)",
 					m.GetSchemaName(),
 					m.TableSelection,
-					len(m.TableHeaders),                // look at how headers get rendered to get accurate record number
+					len(m.TableHeaders), // look at how headers get rendered to get accurate record number
 					len(m.GetColumnData()),
 					len(m.GetHeaders())) // this will need to be refactored when filters get added
-
 				headerTop += strings.Repeat(" ", m.viewport.Width-len(headerTop))
+				headerTop = headerStyle.Render(headerTop)
 			}
 
-			//strings.Repeat(" ", m.viewport.Width-len(headerTop))
-
 			// separator
-			headerBot := strings.Repeat(lipgloss.NewStyle().
-				Align(lipgloss.Center).
-				Faint(true).
-				Render("-"),
+			headerBot := strings.Repeat(headerBottomStyle.
+				Render("¯"),
 				m.viewport.Width)
 			headerMid := strings.Join(builder, "")
-			headerMid = headerMid + strings.Repeat(" ", m.viewport.Width)
+			//headerMid = headerMid + strings.Repeat(" ", m.viewport.Width)
 			*h = fmt.Sprintf("%s\n%s\n%s",
-				headerStyle.Render(headerTop),
+				headerTop,
 				headerMid,
 				headerBot)
 		}
@@ -200,13 +274,29 @@ func (m TuiModel) View() string {
 
 	// footer (shows row/col for now)
 	go func(f *string) {
-		{
-			footer := fmt.Sprintf(" %d, %d ", m.GetRow()+m.viewport.YOffset, m.GetColumn()+m.scrollXOffset)
-			undoRedoInfo := fmt.Sprintf("undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
-			gapSize := m.viewport.Width - lipgloss.Width(footer) - lipgloss.Width(undoRedoInfo) - 2
-			footer = headerStyle.Render(undoRedoInfo) + "├" + strings.Repeat("─", gapSize) + "┤" + headerStyle.Render(footer)
-			*f = footer
+		var (
+			row int
+			col int
+		)
+		if !m.formatModeEnabled { // reason we flip is because it makes more sense to store things by column for data
+			row = m.GetRow() + m.viewport.YOffset
+			col = m.GetColumn() + m.scrollXOffset
+		} else { // but for format mode thats just a regular row/col situation
+			row = m.Format.CursorX
+			col = m.Format.CursorY + m.viewport.YOffset
 		}
+		footer := fmt.Sprintf(" %d, %d ", row, col)
+		undoRedoInfo := fmt.Sprintf("undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
+		switch m.Table.Database.(type) {
+		case *SQLite:
+			break
+		default:
+			undoRedoInfo = ""
+			break
+		}
+		gapSize := m.viewport.Width - lipgloss.Width(footer) - lipgloss.Width(undoRedoInfo) - 2
+		footer = footerStyle.Render(undoRedoInfo) + "├" + strings.Repeat("─", gapSize) + "┤" + footerStyle.Render(footer)
+		*f = footer
 
 		done <- true
 	}(&footer)
@@ -233,6 +323,7 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 		fmt.Printf("%v", err)
 		os.Exit(1)
 	}
+
 	defer rows.Close()
 
 	// for each schema
@@ -262,7 +353,7 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 			columns := make([]interface{}, len(columnNames))
 			columnPointers := make([]interface{}, len(columnNames))
 			// init interface array
-			for i, _ := range columns {
+			for i := range columns {
 				columnPointers[i] = &columns[i]
 			}
 
@@ -283,5 +374,5 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 	}
 
 	// set the first table to be initial view
-	m.TableSelection = 3
+	m.TableSelection = 1
 }

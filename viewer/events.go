@@ -4,24 +4,12 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"strings"
 	"time"
 )
 
 const (
 	getTableNamesQuery = "SELECT name FROM sqlite_master WHERE type='table'"
-)
-
-var (
-	inputBlacklist = []string{
-		"alt+[",
-		"up",
-		"down",
-		"tab",
-		"end",
-		"home",
-		"pgdown",
-		"pgup",
-	}
 )
 
 // handleMouseEvents does that
@@ -38,12 +26,12 @@ func handleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
 		}
 		break
 	case tea.MouseLeft:
-		if !m.editModeEnabled {
+		if !m.editModeEnabled && !m.formatModeEnabled && m.GetRow() < len(m.GetColumnData()) {
 			selectOption(m)
 		}
 		break
 	default:
-		if !m.renderSelection && !m.editModeEnabled && !m.helpDisplay {
+		if !m.renderSelection && !m.editModeEnabled && !m.helpDisplay && !m.formatModeEnabled {
 			m.mouseEvent = tea.MouseEvent(*msg)
 		}
 		break
@@ -64,15 +52,13 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 		m.mouseEvent.Y = headerHeight
 
 		maxInputLength = m.viewport.Width
-		m.textInput.CharLimit = -1
-		m.textInput.Width = maxInputLength - lipgloss.Width(m.textInput.Prompt)
-		m.textInput.BlinkSpeed = time.Second
-		m.textInput.SetCursorMode(CursorBlink)
+		m.textInput.Model.CharLimit = -1
+		m.textInput.Model.Width = maxInputLength - lipgloss.Width(m.textInput.Model.Prompt)
+		m.textInput.Model.BlinkSpeed = time.Second
+		m.textInput.Model.SetCursorMode(CursorBlink)
 
-		{ // race condition here on debug mode TODO
-			m.tableStyle = m.GetBaseStyle()
-			m.SetViewSlices()
-		}
+		m.tableStyle = m.GetBaseStyle()
+		m.SetViewSlices()
 	} else {
 		m.viewport.Width = msg.Width
 		m.viewport.Height = msg.Height - verticalMargins
@@ -86,35 +72,54 @@ func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 }
 
 // handleKeyboardEvents does that
-func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
+func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	var (
-		str string
-		input string
-		min int
-		first string
-		last string
-		val string
+		cmd tea.Cmd
 	)
-	str = msg.String()
-	input = m.textInput.Value()
-	if input != "" && m.textInput.Cursor() < len(input) - 1 {
-		min = Max(m.textInput.Cursor(), 0)
-		min = Min(min, len(input) - 1)
-		first = input[:min]
-		last = input[min:]
-		val = first + str + last
-	} else {
-		val = input + str
-	}
 
+	str := msg.String()
 	cw := m.CellWidth()
 
 	if m.editModeEnabled { // handle edit mode
-		handleEditMode(m, str, first, last, input, val)
-		return
+		handleEditMode(m, str)
+		return cmd
+	} else if m.formatModeEnabled {
+		if str == "esc" {
+			if m.textInput.Model.Focused() {
+				cmd = m.formatInput.Model.Focus()
+				m.textInput.Model.Blur()
+			} else {
+				cmd = m.textInput.Model.Focus()
+				m.formatInput.Model.Blur()
+			}
+			return cmd
+		}
+
+		if m.textInput.Model.Focused() {
+			handleEditMode(m, str)
+		} else {
+			handleFormatMode(m, str)
+		}
+
+		return cmd
 	}
 
+	// GLOBAL COMMANDS
 	switch str {
+	case "t":
+		SelectedTheme = (SelectedTheme + 1) % len(ValidThemes)
+		setStyles()
+		break
+	case "pgdown":
+		for i := 0; i < m.viewport.Height; i++ {
+			scrollDown(m)
+		}
+		break
+	case "pgup":
+		for i := 0; i < m.viewport.Height; i++ {
+			scrollUp(m)
+		}
+		break
 	case "r": // redo
 		if len(m.RedoStack) > 0 { // do this after you get undo working, basically just the same thing reversed
 			// handle undo
@@ -168,10 +173,26 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		}
 
 		str := GetStringRepresentationOfInterface(*raw)
-		if lipgloss.Width(str + m.textInput.Prompt) > m.viewport.Width {
-			m.formatModeEnabled = true
+		// so if the selected text is wider than viewport width or if it has newlines do format mode
+		if lipgloss.Width(str+m.textInput.Model.Prompt) > m.viewport.Width || strings.Count(str, "\n") > 0 { // enter format view
+			prepareFormatMode(m)
+			cmd = m.formatInput.Model.Focus()
+			m.preScrollYOffset = m.viewport.YOffset
+			m.preScrollYPosition = m.mouseEvent.Y
+			if conv, err := formatJson(str); err == nil { // if json prettify
+				m.selectionText = conv
+			} else {
+				m.selectionText = str
+			}
+			m.formatInput.Original = raw
+			m.Format.Text = getFormattedTextBuffer(m)
+			m.SetViewSlices()
+			m.formatInput.Model.setCursor(0)
+		} else { // otherwise, edit normally up top
+			m.textInput.Model.SetValue(str)
+			m.formatInput.Model.focus = false
+			m.textInput.Model.focus = true
 		}
-		m.textInput.SetValue(str)
 		break
 	case "p":
 		if m.renderSelection {
@@ -193,6 +214,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 
 		// fix spacing and whatnot
 		m.tableStyle = m.tableStyle.Width(cw)
+		m.mouseEvent.Y = headerHeight
+		m.mouseEvent.X = 0
 		m.viewport.YOffset = 0
 		m.scrollXOffset = 0
 		break
@@ -205,6 +228,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 
 		// fix spacing and whatnot
 		m.tableStyle = m.tableStyle.Width(cw)
+		m.mouseEvent.Y = headerHeight
+		m.mouseEvent.X = 0
 		m.viewport.YOffset = 0
 		m.scrollXOffset = 0
 		break
@@ -244,12 +269,12 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 	case "d": // manual keyboard control for column ++
 		col := m.GetColumn()
 		cols := len(m.TableHeadersSlice) - 1
-		if (m.mouseEvent.X - m.viewport.Width) <= cw && m.GetColumn() < cols { // within tolerances
+		if (m.mouseEvent.X-m.viewport.Width) <= cw && m.GetColumn() < cols { // within tolerances
 			m.mouseEvent.X += cw
 		} else if col == cols {
 			go Program.Send(tea.KeyMsg{
-				Type:  tea.KeyRight,
-				Alt:   false,
+				Type: tea.KeyRight,
+				Alt:  false,
 			})
 		}
 		break
@@ -258,8 +283,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 			m.mouseEvent.X -= cw
 		} else if m.GetColumn() == 0 {
 			go Program.Send(tea.KeyMsg{
-				Type:  tea.KeyLeft,
-				Alt:   false,
+				Type: tea.KeyLeft,
+				Alt:  false,
 			})
 		}
 		break
@@ -282,9 +307,13 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) {
 		m.renderSelection = false
 		m.helpDisplay = false
 		m.selectionText = ""
+		cmd = m.textInput.Model.Focus()
+		m.textInput.Model.SetValue("")
 		m.expandColumn = -1
 		m.mouseEvent.Y = m.preScrollYPosition
 		m.viewport.YOffset = m.preScrollYOffset
 		break
 	}
+
+	return cmd
 }

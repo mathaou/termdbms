@@ -31,6 +31,10 @@ func TruncateIfApplicable(m *TuiModel, conv string) (s string) {
 		max = cellWidth
 	}
 
+	if strings.Count(conv, "\n") > 0 {
+		conv = SplitLines(conv)[0]
+	}
+
 	textWidth := lipgloss.Width(conv)
 	minVal := Min(textWidth, max)
 
@@ -127,7 +131,13 @@ func FileExists(name string) (bool, error) {
 
 func SplitLines(s string) []string {
 	var lines []string
-	sc := bufio.NewScanner(strings.NewReader(s))
+	if strings.Count(s, "\n") == 0 {
+		return append(lines, s)
+	}
+
+	reader := strings.NewReader(s)
+	sc := bufio.NewScanner(reader)
+
 	for sc.Scan() {
 		lines = append(lines, sc.Text())
 	}
@@ -145,14 +155,14 @@ func (m *TuiModel) CopyMap() (to map[string]interface{}) {
 			// golang wizardry
 			columns := make([]interface{}, len(columnNames))
 
-			for i, _ := range columns {
+			for i := range columns {
 				columns[i] = copyValues[columnNames[i]]
 			}
 
 			for i, colName := range columnNames {
 				val := columns[i].([]interface{})
 				copy := make([]interface{}, len(val))
-				for k, _ := range val {
+				for k := range val {
 					copy[k] = val[k]
 				}
 				columnValues[colName] = append(columnValues[colName], copy)
@@ -173,6 +183,9 @@ func assembleTable(m *TuiModel) string {
 	if m.renderSelection {
 		return displaySelection(m)
 	}
+	if m.formatModeEnabled {
+		return displayFormatBuffer(m)
+	}
 
 	return displayTable(m)
 }
@@ -183,6 +196,8 @@ func getScrollDownMaxForSelection(m *TuiModel) int {
 		conv, _ := formatJson(m.selectionText)
 		lines := SplitLines(conv)
 		max = len(lines)
+	} else if m.formatModeEnabled {
+		max = len(SplitLines(displayFormatBuffer(m)))
 	} else {
 		return len(m.GetColumnData())
 	}

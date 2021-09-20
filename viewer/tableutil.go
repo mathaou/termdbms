@@ -9,13 +9,20 @@ var maxHeaders int
 
 // GetNewModel returns a TuiModel struct with some fields set
 func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
-	return TuiModel{
+	m := TuiModel{
 		Table: TableState{
 			Database: &SQLite{
 				FileName: baseFileName,
 				db:       db,
 			},
 			Data: make(map[string]interface{}),
+		},
+		Format: FormatState{
+			Slices:         nil,
+			Text:           nil,
+			RunningOffsets: nil,
+			CursorX:        0,
+			CursorY:        0,
 		},
 		TableHeaders:    make(map[string][]string),
 		DataSlices:      make(map[string][]interface{}),
@@ -25,8 +32,17 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 		ready:           false,
 		renderSelection: false,
 		editModeEnabled: false,
-		textInput:       NewModel(),
+		textInput: LineEdit{
+			Model:         NewModel(),
+			EnterBehavior: HeaderLineEditEnterBehavior,
+		},
+		formatInput: LineEdit{
+			Model:         NewModel(),
+			EnterBehavior: BodyLineEditEnterBehavior,
+		},
 	}
+	m.formatInput.Model.Prompt = ""
+	return m
 }
 
 // NumHeaders gets the number of columns for the current schema
@@ -49,26 +65,21 @@ func (m *TuiModel) NumHeaders() int {
 // CellWidth gets the current cell width for schema
 func (m *TuiModel) CellWidth() int {
 	h := m.NumHeaders()
-	if h == 0 {
-		println(h)
-	}
-	return m.viewport.Width / h + 1
+	return m.viewport.Width / h
 }
 
 // GetBaseStyle returns a new style that is used everywhere
 func (m *TuiModel) GetBaseStyle() lipgloss.Style {
 	cw := m.CellWidth()
 	s := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(textColor())).
 		Width(cw).
-		MaxWidth(cw).
-		Align(lipgloss.Left).
-		Padding(0).
-		Margin(0)
+		Align(lipgloss.Left)
 
-	if m.borderToggle {
-		s = s.BorderRight(true).
-			BorderLeft(true).
-			BorderStyle(lipgloss.RoundedBorder())
+	if m.borderToggle && !Ascii {
+		s = s.BorderLeft(true).
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color(borderColor()))
 	}
 
 	return s
@@ -77,7 +88,7 @@ func (m *TuiModel) GetBaseStyle() lipgloss.Style {
 // GetColumn gets the column the mouse cursor is in
 func (m *TuiModel) GetColumn() int {
 	baseVal := m.mouseEvent.X / m.CellWidth()
-	if m.renderSelection || m.editModeEnabled {
+	if m.renderSelection || m.editModeEnabled || m.formatModeEnabled {
 		return m.scrollXOffset + baseVal
 	}
 
@@ -89,6 +100,8 @@ func (m *TuiModel) GetRow() int {
 	baseVal := Max(m.mouseEvent.Y-headerHeight, 0)
 	if m.renderSelection || m.editModeEnabled {
 		return m.viewport.YOffset + baseVal
+	} else if m.formatModeEnabled {
+		return m.preScrollYOffset + baseVal
 	}
 	return baseVal
 }
@@ -104,27 +117,44 @@ func (m *TuiModel) GetHeaders() []string {
 }
 
 func (m *TuiModel) SetViewSlices() {
-	headers := m.TableHeaders[m.GetSchemaName()]
-	headersLen := len(headers)
-
-	if headersLen > maxHeaders {
-		headers = headers[m.scrollXOffset : maxHeaders+m.scrollXOffset - 1]
-	}
-
-	for _, columnName := range headers {
-		interfaceValues := m.GetSchemaData()[columnName]
-		if len(interfaceValues) >= m.viewport.Height {
-			min := Min(m.viewport.YOffset, len(interfaceValues)-m.viewport.Height)
-			if min < 0 || m.viewport.Height+min < 0 { // sometimes negative due to race condition... TODO
-				continue
+	if m.formatModeEnabled {
+		var slices []*string
+		for i := 0; i < m.viewport.Height; i++ {
+			yOffset := Max(m.viewport.YOffset, 0)
+			if yOffset+i > len(m.Format.Text)-1 {
+				break
 			}
-			m.DataSlices[columnName] = interfaceValues[min : m.viewport.Height+min]
-		} else {
-			m.DataSlices[columnName] = interfaceValues
+			pStr := &m.Format.Text[Max(yOffset+i, 0)]
+			slices = append(slices, pStr)
 		}
-	}
+		m.Format.Slices = slices
+		m.CanFormatScroll = len(m.Format.Text)-m.viewport.YOffset-m.viewport.Height > 0
+		if m.Format.CursorX < 0 {
+			m.Format.CursorX = 0
+		}
+	} else {
+		// header slices
+		headers := m.TableHeaders[m.GetSchemaName()]
+		headersLen := len(headers)
 
-	m.TableHeadersSlice = headers
+		if headersLen > maxHeaders {
+			headers = headers[m.scrollXOffset : maxHeaders+m.scrollXOffset-1]
+		}
+
+		// data slices
+		for _, columnName := range headers {
+			interfaceValues := m.GetSchemaData()[columnName]
+			if len(interfaceValues) >= m.viewport.Height {
+				min := Min(m.viewport.YOffset, len(interfaceValues)-m.viewport.Height)
+				m.DataSlices[columnName] = interfaceValues[min : m.viewport.Height+min]
+			} else {
+				m.DataSlices[columnName] = interfaceValues
+			}
+		}
+
+		m.TableHeadersSlice = headers
+	}
+	// format slices
 }
 
 // GetSchemaData is a helper function to get the data of the current schema
@@ -142,6 +172,11 @@ func (m *TuiModel) GetColumnData() []interface{} {
 }
 
 func (m *TuiModel) GetRowData() map[string]interface{} {
+	defer func() {
+		if recover() != nil {
+			println("Whoopsy!") // TODO, this happened once
+		}
+	}()
 	headers := m.GetHeaders()
 	schema := m.GetSchemaData()
 	data := make(map[string]interface{})
@@ -153,10 +188,12 @@ func (m *TuiModel) GetRowData() map[string]interface{} {
 }
 
 func (m *TuiModel) GetSelectedOption() (*interface{}, int, []interface{}) {
-	m.preScrollYOffset = m.viewport.YOffset
-	m.preScrollYPosition = m.mouseEvent.Y
-	col := m.GetColumnData()
+	if !m.formatModeEnabled {
+		m.preScrollYOffset = m.viewport.YOffset
+		m.preScrollYPosition = m.mouseEvent.Y
+	}
 	row := m.GetRow()
+	col := m.GetColumnData()
 	if row >= len(col) {
 		return nil, row, col
 	}
@@ -167,4 +204,12 @@ func (m *TuiModel) DisplayMessage(msg string) {
 	m.selectionText = msg
 	m.editModeEnabled = false
 	m.renderSelection = true
+}
+
+func (m *TuiModel) GetSelectedLineEdit() *LineEdit {
+	if m.textInput.Model.Focused() {
+		return &m.textInput
+	}
+
+	return &m.formatInput
 }

@@ -8,6 +8,7 @@ import (
 var (
 	dbMutex sync.Mutex
 	dbs     map[string]*sql.DB
+	DriverString string
 )
 
 type Database interface {
@@ -26,17 +27,18 @@ func init() {
 	dbs = make(map[string]*sql.DB)
 }
 
+
 func (m *TuiModel) ProcessSqlQueryForDatabaseType(q Query) {
-	switch q.(type) {
+	switch conv := q.(type) {
 	case *Update:
-		update, _ := q.(*Update)
-		update.v = m.GetRowData()
-		update.TableName = m.GetSchemaName()
-		update.Column = m.GetSelectedColumnName()
-		m.Table.Database.Update(update)
+		conv.v = m.GetRowData()
+		conv.TableName = m.GetSchemaName()
+		conv.Column = m.GetSelectedColumnName()
+		m.Table.Database.Update(conv)
 		break
 	}
 }
+
 
 // GetDatabaseForFile does what you think it does
 func GetDatabaseForFile(database string) *sql.DB {
@@ -45,7 +47,7 @@ func GetDatabaseForFile(database string) *sql.DB {
 	if db, ok := dbs[database]; ok {
 		return db
 	}
-	db, err := sql.Open("sqlite", database)
+	db, err := sql.Open(DriverString, database)
 	if err != nil {
 		panic(err)
 	}
