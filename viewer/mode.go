@@ -19,6 +19,11 @@ var (
 )
 
 func moveCursorWithinBounds(m *TuiModel) {
+	defer func() {
+		if recover() != nil {
+			println("ass")
+		}
+	}()
 	offset := getOffsetForLineNumber(m.Format.CursorY)
 	l := len(*m.Format.Slices[m.Format.CursorY])
 	end := l - 1 - offset
@@ -201,6 +206,9 @@ func handleFormatInput(m *TuiModel, str string) (ret bool) {
 		min = Min(min, len(m.selectionText))
 		first := runes[:min]
 		last := runes[min:]
+		if len(last) == 0 {
+			return // TODO can't add newline to end
+		}
 		m.selectionText = string(first) + "\n" + string(last)
 		if yOffset+m.viewport.Height == len(m.Format.Text) {
 			m.viewport.YOffset++

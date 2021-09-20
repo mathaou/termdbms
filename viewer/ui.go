@@ -172,8 +172,6 @@ func displayTable(m *TuiModel) string {
 }
 
 func getFormattedTextBuffer(m *TuiModel) []string {
-	//margins := headerHeight - footerHeight
-	//offsetMax := m.viewport.Height - margins
 	v := m.selectionText
 	validJson := false
 	if format, err := formatJson(v); err == nil {
