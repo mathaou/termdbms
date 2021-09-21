@@ -3,10 +3,11 @@ package viewer
 func GetHelpText() (help string) {
 	help = `
 ##### Help:
-	-p	database path (absolute)
-    -d      specifies which database driver to use (sqlite/mysql)
-    -a      enable ascii mode
-	-h	prints this message
+-p / database path (absolute)
+-d / specifies which database driver to use (sqlite/mysql)
+-a / enable ascii mode
+-h / prints this message
+-t / starts app with specific theme (default, nord, solarized)
 ##### Controls:
 ###### MOUSE
 	Scroll up + down to navigate table/text
@@ -22,6 +23,7 @@ func GetHelpText() (help string) {
 	[Q or CTRL+C] to quit program
     [B] to toggle borders!
     [C] to expand column
+	[T] to cycle through themes!
     [P] in selection mode to write cell to file
     [R] to redo actions, if applicable
     [U] to undo actions, if applicable

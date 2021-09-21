@@ -13,7 +13,7 @@ tea "github.com/charmbracelet/bubbletea"
 rw "github.com/mattn/go-runewidth"
 )
 
-const defaultBlinkSpeed = time.Millisecond * 530
+const DefaultBlinkSpeed = time.Millisecond * 530
 
 // Internal ID management for text inputs. Necessary for blink integrity when
 // multiple text inputs are involved.
@@ -118,7 +118,7 @@ type TextInputModel struct {
 
 	// Width is the maximum number of characters that can be displayed at once.
 	// It essentially treats the text field like a horizontally scrolling
-	// viewport. If 0 or less this setting is ignored.
+	// Viewport. If 0 or less this setting is ignored.
 	Width int
 
 	// The ID of this TextInputModel as it relates to other textinput Models.
@@ -140,7 +140,7 @@ type TextInputModel struct {
 	// Cursor position.
 	pos int
 
-	// Used to emulate a viewport when width is set and the content is
+	// Used to emulate a Viewport when width is set and the content is
 	// overflowing.
 	offset      int
 	offsetRight int
@@ -156,7 +156,7 @@ type TextInputModel struct {
 func NewModel() TextInputModel {
 	m := TextInputModel{
 		Prompt:           "> ",
-		BlinkSpeed:       defaultBlinkSpeed,
+		BlinkSpeed:       DefaultBlinkSpeed,
 		EchoCharacter:    '*',
 		CharLimit:        0,
 		PlaceholderStyle: lipgloss.NewStyle(),
@@ -246,7 +246,7 @@ func (m TextInputModel) CursorMode() CursorMode {
 	return m.cursorMode
 }
 
-// CursorMode sets the model's cursor mode. This method returns a command.
+// SetCursorMode CursorMode sets the model's cursor mode. This method returns a command.
 //
 // For available cursor modes, see type CursorMode.
 func (m *TextInputModel) SetCursorMode(mode CursorMode) tea.Cmd {
@@ -342,7 +342,7 @@ func (m *TextInputModel) handlePaste(v string) bool {
 }
 
 // If a max width is defined, perform some logic to treat the visible area
-// as a horizontally scrolling viewport.
+// as a horizontally scrolling Viewport.
 func (m *TextInputModel) handleOverflow() {
 	if m.Width <= 0 || rw.StringWidth(string(m.value)) <= m.Width {
 		m.offset = 0

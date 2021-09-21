@@ -6,24 +6,25 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"math"
 	"os"
 	"strings"
 )
 
 var (
-	headerHeight      = 3
-	footerHeight      = 1
-	maxInputLength    int
-	headerStyle       lipgloss.Style
-	footerStyle       lipgloss.Style
-	headerBottomStyle lipgloss.Style
-	InitialModel      *TuiModel
+	HeaderHeight       = 3
+	FooterHeight       = 1
+	MaxInputLength     int
+	HeaderStyle        lipgloss.Style
+	FooterStyle        lipgloss.Style
+	HeaderDividerStyle lipgloss.Style
+	InitialModel       *TuiModel
 )
 
-const (
-	maximumRendererCharacters = math.MaxInt32
-)
+type ScrollData struct {
+	PreScrollYOffset   int
+	PreScrollYPosition int
+	ScrollXOffset      int
+}
 
 // TableState holds everything needed to save/serialize state
 type TableState struct {
@@ -38,59 +39,60 @@ type UIState struct {
 	EditModeEnabled   bool // edit mode
 	FormatModeEnabled bool
 	BorderToggle      bool
+	ExpandColumn      int
+	CurrentTable      int
+}
+
+type UIData struct {
+	TableHeaders      map[string][]string // keeps track of which schema has which headers
+	TableHeadersSlice []string
+	TableSlices       map[string][]interface{}
+	TableIndexMap     map[int]string // keeps the schemas in order
+	EditTextBuffer    string
 }
 
 type FormatState struct {
-	Slices         []*string
-	Text           []string
-	RunningOffsets []int
+	EditSlices     []*string // the bit to show
+	Text           []string  // the master collection of lines to edit
+	RunningOffsets []int     // this is a LUT for where in the original EditTextBuffer each line starts
 	CursorX        int
 	CursorY        int
 }
 
 // TuiModel holds all the necessary state for this app to work the way I designed it to
 type TuiModel struct {
-	Table              TableState // all non-destructive changes are TableStates getting passed around
-	Format             FormatState
-	UI                 UIState
-	Ready              bool
-	TableHeaders       map[string][]string // keeps track of which schema has which headers
-	TableHeadersSlice  []string
-	DataSlices         map[string][]interface{}
-	TableIndexMap      map[int]string // keeps the schemas in order
-	TableSelection     int
-	InitialFileName    string // used if saving destructively
-	selectionText      string
-	preScrollYOffset   int
-	preScrollYPosition int
-	scrollXOffset      int
-	expandColumn       int
-	viewport           viewport.Model
-	tableStyle         lipgloss.Style
-	mouseEvent         tea.MouseEvent
-	textInput          LineEdit
-	formatInput        LineEdit
-	UndoStack          []TableState
-	RedoStack          []TableState
-	err                error
+	Table           TableState // all non-destructive changes are TableStates getting passed around
+	Format          FormatState
+	UI              UIState
+	Scroll          ScrollData
+	Data            UIData
+	Ready           bool
+	InitialFileName string // used if saving destructively
+	Viewport        viewport.Model
+	TableStyle      lipgloss.Style
+	MouseData       tea.MouseEvent
+	TextInput       LineEdit
+	FormatInput     LineEdit
+	UndoStack       []TableState
+	RedoStack       []TableState
 }
 
-func setStyles() {
-	headerStyle = lipgloss.NewStyle()
-	footerStyle = lipgloss.NewStyle()
+func SetStyles() {
+	HeaderStyle = lipgloss.NewStyle()
+	FooterStyle = lipgloss.NewStyle()
 
-	headerBottomStyle = lipgloss.NewStyle().
+	HeaderDividerStyle = lipgloss.NewStyle().
 		Align(lipgloss.Center)
 
 	if !Ascii {
-		headerStyle = headerStyle.
-			Foreground(lipgloss.Color(headerTopForegroundColor()))
+		HeaderStyle = HeaderStyle.
+			Foreground(lipgloss.Color(HeaderTopForeground()))
 
-		footerStyle = footerStyle.
-			Foreground(lipgloss.Color(footerForegroundColor()))
+		FooterStyle = FooterStyle.
+			Foreground(lipgloss.Color(FooterForeground()))
 
-		headerBottomStyle = headerBottomStyle.
-			Foreground(lipgloss.Color(headerBottomColor()))
+		HeaderDividerStyle = HeaderDividerStyle.
+			Foreground(lipgloss.Color(HeaderBottom()))
 	}
 }
 
@@ -98,33 +100,26 @@ func setStyles() {
 
 // Init currently doesn't do anything but necessary for interface adherence
 func (m TuiModel) Init() tea.Cmd {
-	setStyles()
+	SetStyles()
 
 	return nil
 }
 
 // Update is where all commands and whatnot get processed
 func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
-	//if !m.UI.FormatModeEnabled {
-	//	m.UI.FormatModeEnabled = true
-	//	m.UI.EditModeEnabled = false
-	//	m.selectionText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed commodo, elit at scelerisque consequat, lectus ex semper turpis, a posuere mauris neque a odio. Nam at placerat elit. Suspendisse potenti. Nullam lorem felis, fringilla vitae commodo at, vestibulum quis lacus. Phasellus iaculis elementum enim, eu lobortis lacus imperdiet at. Praesent a hendrerit nisl. Mauris faucibus, mi non posuere porta, turpis risus posuere dolor, at tempor dolor sapien vitae eros. Ut non efficitur enim, eu pretium tortor. In et laoreet magna. Etiam dignissim viverra convallis. Suspendisse ac nibh velit. Nulla facilisis vestibulum nibh vitae venenatis. Vivamus ornare, justo hendrerit blandit ultrices, metus diam aliquet urna, et sollicitudin ante odio quis ex. Duis non luctus augue, ac fringilla eros.\n\nNunc at dolor arcu. Nullam quis velit id purus bibendum tincidunt bibendum vel nunc. Maecenas imperdiet aliquam mauris a tincidunt. Praesent faucibus sapien nec massa posuere, ac placerat enim viverra. Quisque a condimentum velit, id feugiat lectus. Vivamus iaculis magna ante. Nulla interdum tristique justo, ac blandit dolor rutrum vel. Maecenas id tristique leo.\n\nProin lobortis finibus nibh, vitae porttitor tortor. Duis rutrum, eros ac fringilla scelerisque, nisi velit tristique odio, facilisis fermentum quam enim et risus. In tempus ipsum a erat posuere, quis varius ex hendrerit. Donec suscipit nec nulla sed dictum. Aenean venenatis augue quam. In nunc leo, fringilla vel justo et, sodales tempor libero. Cras sit amet nulla vel elit aliquet facilisis ac nec leo. Quisque interdum, enim et porttitor condimentum, nunc erat efficitur orci, id mattis diam arcu porttitor urna. Ut consectetur mi eu urna gravida lacinia a vel diam. Sed posuere, ante ac scelerisque sollicitudin, nisl dolor mollis nulla, quis commodo massa eros ut neque. Nam tempus dui et est congue blandit.\n\nIn quis posuere diam, at efficitur orci. Nullam vulputate, tortor sed fringilla pretium, massa massa congue justo, quis consectetur justo sapien non odio. Praesent pulvinar non magna a mattis. Cras efficitur mauris eu pretium eleifend. Vestibulum fringilla scelerisque neque ac blandit. Ut sagittis congue tellus et viverra. Sed cursus augue id lobortis accumsan.\n\nNulla et justo eu ligula blandit volutpat. Sed cursus nunc elit, id consequat enim fringilla ac. Fusce sagittis fermentum magna at cursus. Donec metus est, vestibulum vel porttitor vitae, imperdiet non purus. Vestibulum aliquet scelerisque lobortis. Nullam sed dolor id libero interdum dignissim. Fusce porttitor id est in pretium. Donec non faucibus ipsum. Ut mattis orci tincidunt sapien commodo, quis euismod mi condimentum. Phasellus non eros felis. Etiam pellentesque ut massa id suscipit. Praesent viverra mauris in ultrices semper. Nam ante sem, sollicitudin nec mauris ut, euismod hendrerit justo. Curabitur placerat luctus lorem sit amet scelerisque. Suspendisse luctus tellus vitae felis fermentum luctus. Morbi dolor est, convallis ac ex sit amet, viverra dapibus ante."
-	//	m.formatInput.Model.focus = true
-	//	m.textInput.Model.focus = false
-	//}
 	var (
-		cmd  tea.Cmd
-		cmds []tea.Cmd
+		command  tea.Cmd
+		commands []tea.Cmd
 	)
 
 	switch msg := message.(type) {
 	case tea.MouseMsg:
-		handleMouseEvents(&m, &msg)
+		HandleMouseEvents(&m, &msg)
 		m.SetViewSlices()
 		break
 	case tea.WindowSizeMsg:
-		event := handleWidowSizeEvents(&m, &msg)
-		cmds = append(cmds, event)
+		event := HandleWindowSizeEvents(&m, &msg)
+		commands = append(commands, event)
 		break
 	case tea.KeyMsg:
 		// when fullscreen selection viewing is in session, don't allow UI manipulation other than quit or exit
@@ -142,35 +137,34 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
-		handleKeyboardEvents(&m, &msg)
+		HandleKeyboardEvents(&m, &msg)
 		if !m.UI.EditModeEnabled && m.Ready {
 			m.SetViewSlices()
 			if m.UI.FormatModeEnabled {
-				moveCursorWithinBounds(&m)
+				MoveCursorWithinBounds(&m)
 			}
 		}
 
 		break
 	case error:
-		m.err = msg
 		return m, nil
 	}
 
 	if !m.UI.FormatModeEnabled {
-		m.viewport, _ = m.viewport.Update(message)
+		m.Viewport, _ = m.Viewport.Update(message)
 	}
 
-	if m.viewport.HighPerformanceRendering {
-		cmds = append(cmds, cmd)
+	if m.Viewport.HighPerformanceRendering {
+		commands = append(commands, command)
 	}
 
-	return m, tea.Batch(cmds...)
+	return m, tea.Batch(commands...)
 }
 
 // View is where all rendering happens
 func (m TuiModel) View() string {
-	if !m.Ready || m.viewport.Width == 0 {
-		return "\n  Initializing..."
+	if !m.Ready || m.Viewport.Width == 0 {
+		return "\n\tInitializing..."
 	}
 
 	// this ensures that all 3 parts can be worked on concurrently(ish)
@@ -180,7 +174,7 @@ func (m TuiModel) View() string {
 
 	// body
 	go func(c *string) {
-		*c = assembleTable(&m)
+		*c = AssembleTable(&m)
 		done <- true
 	}(&content)
 
@@ -194,14 +188,14 @@ func (m TuiModel) View() string {
 
 		if !Ascii {
 			// for column headers
-			style = style.Foreground(lipgloss.Color(headerForeground())).
-				BorderBackground(lipgloss.Color(headerBorderBackground())).
-				Background(lipgloss.Color(headerBackground())).
+			style = style.Foreground(lipgloss.Color(HeaderForeground())).
+				BorderBackground(lipgloss.Color(HeaderBorderBackground())).
+				Background(lipgloss.Color(HeaderBackground())).
 				PaddingLeft(1)
 		}
-		headers := m.TableHeadersSlice
+		headers := m.Data.TableHeadersSlice
 		for i, d := range headers { // write all headers
-			if m.expandColumn != -1 && i != m.expandColumn {
+			if m.UI.ExpandColumn != -1 && i != m.UI.ExpandColumn {
 				continue
 			}
 
@@ -215,27 +209,28 @@ func (m TuiModel) View() string {
 			var headerTop string
 
 			if m.UI.EditModeEnabled || m.UI.FormatModeEnabled {
-				headerTop = m.textInput.Model.View()
-				if !m.textInput.Model.Focused() {
-					headerTop = headerStyle.Copy().Faint(true).Render(headerTop)
+				headerTop = m.TextInput.Model.View()
+				if !m.TextInput.Model.Focused() {
+					headerTop = HeaderStyle.Copy().Faint(true).Render(headerTop)
 				}
 			} else {
 				headerTop = fmt.Sprintf("%s (%d/%d) - %d record(s) + %d column(s)",
 					m.GetSchemaName(),
-					m.TableSelection,
-					len(m.TableHeaders), // look at how headers get rendered to get accurate record number
+					m.UI.CurrentTable,
+					len(m.Data.TableHeaders), // look at how headers get rendered to get accurate record number
 					len(m.GetColumnData()),
 					len(m.GetHeaders())) // this will need to be refactored when filters get added
-				headerTop += strings.Repeat(" ", m.viewport.Width-len(headerTop))
-				headerTop = headerStyle.Render(headerTop)
+				headerTop += strings.Repeat(" ", m.Viewport.Width-len(headerTop))
+				headerTop = HeaderStyle.Render(headerTop)
 			}
 
 			// separator
-			headerBot := strings.Repeat(headerBottomStyle.
-				Render("¯"),
-				m.viewport.Width)
+			headerBot := strings.Repeat(
+				HeaderDividerStyle.
+					Render("¯"),
+				m.Viewport.Width)
 			headerMid := strings.Join(builder, "")
-			//headerMid = headerMid + strings.Repeat(" ", m.viewport.Width)
+			//headerMid = headerMid + strings.Repeat(" ", m.Viewport.Width)
 			*h = fmt.Sprintf("%s\n%s\n%s",
 				headerTop,
 				headerMid,
@@ -252,11 +247,11 @@ func (m TuiModel) View() string {
 			col int
 		)
 		if !m.UI.FormatModeEnabled { // reason we flip is because it makes more sense to store things by column for data
-			row = m.GetRow() + m.viewport.YOffset
-			col = m.GetColumn() + m.scrollXOffset
+			row = m.GetRow() + m.Viewport.YOffset
+			col = m.GetColumn() + m.Scroll.ScrollXOffset
 		} else { // but for format mode thats just a regular row/col situation
 			row = m.Format.CursorX
-			col = m.Format.CursorY + m.viewport.YOffset
+			col = m.Format.CursorY + m.Viewport.YOffset
 		}
 		footer := fmt.Sprintf(" %d, %d ", row, col)
 		undoRedoInfo := fmt.Sprintf("undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
@@ -267,8 +262,8 @@ func (m TuiModel) View() string {
 			undoRedoInfo = ""
 			break
 		}
-		gapSize := m.viewport.Width - lipgloss.Width(footer) - lipgloss.Width(undoRedoInfo) - 2
-		footer = footerStyle.Render(undoRedoInfo) + "├" + strings.Repeat("─", gapSize) + "┤" + footerStyle.Render(footer)
+		gapSize := m.Viewport.Width - lipgloss.Width(footer) - lipgloss.Width(undoRedoInfo) - 2
+		footer = FooterStyle.Render(undoRedoInfo) + "├" + strings.Repeat("─", gapSize) + "┤" + FooterStyle.Render(footer)
 		*f = footer
 
 		done <- true
@@ -291,7 +286,7 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 	indexMap := 0
 
 	// gets all the schema names of the database
-	rows, err := db.Query(getTableNamesQuery)
+	rows, err := db.Query(GetTableNamesQuery)
 	if err != nil {
 		fmt.Printf("%v", err)
 		os.Exit(1)
@@ -340,12 +335,12 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
 
 		// onto the next schema
 		indexMap++
-		m.Table.Data[schemaName] = columnValues  // data for schema, organized by column
-		m.TableHeaders[schemaName] = columnNames // headers for the schema, for later reference
+		m.Table.Data[schemaName] = columnValues       // data for schema, organized by column
+		m.Data.TableHeaders[schemaName] = columnNames // headers for the schema, for later reference
 		// mapping between schema and an int ( since maps aren't deterministic), for later reference
-		m.TableIndexMap[indexMap] = schemaName
+		m.Data.TableIndexMap[indexMap] = schemaName
 	}
 
 	// set the first table to be initial view
-	m.TableSelection = 1
+	m.UI.CurrentTable = 1
 }

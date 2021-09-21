@@ -11,12 +11,8 @@ import (
 )
 
 var (
-	serializationErrorString string
-)
-
-func init() {
 	serializationErrorString = fmt.Sprintf("Database driver %s does not support serialization.", DriverString)
-}
+)
 
 func (m *TuiModel) Serialize() (string, error) {
 	switch m.Table.Database.(type) {

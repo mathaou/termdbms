@@ -9,70 +9,70 @@ import (
 )
 
 const (
-	getTableNamesQuery = "SELECT name FROM sqlite_master WHERE type='table'"
+	GetTableNamesQuery = "SELECT name FROM sqlite_master WHERE type='table'"
 )
 
-// handleMouseEvents does that
-func handleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
+// HandleMouseEvents does that
+func HandleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
 	switch msg.Type {
 	case tea.MouseWheelDown:
 		if !m.UI.EditModeEnabled {
-			scrollDown(m)
+			ScrollDown(m)
 		}
 		break
 	case tea.MouseWheelUp:
 		if !m.UI.EditModeEnabled {
-			scrollUp(m)
+			ScrollUp(m)
 		}
 		break
 	case tea.MouseLeft:
 		if !m.UI.EditModeEnabled && !m.UI.FormatModeEnabled && m.GetRow() < len(m.GetColumnData()) {
-			selectOption(m)
+			SelectOption(m)
 		}
 		break
 	default:
 		if !m.UI.RenderSelection && !m.UI.EditModeEnabled && !m.UI.HelpDisplay && !m.UI.FormatModeEnabled {
-			m.mouseEvent = tea.MouseEvent(*msg)
+			m.MouseData = tea.MouseEvent(*msg)
 		}
 		break
 	}
 }
 
-// handleWidowSizeEvents does that
-func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
-	verticalMargins := headerHeight + footerHeight
+// HandleWindowSizeEvents does that
+func HandleWindowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
+	verticalMargins := HeaderHeight + FooterHeight
 
 	if !m.Ready {
-		m.viewport = viewport.Model{
+		m.Viewport = viewport.Model{
 			Width:  msg.Width,
 			Height: msg.Height - verticalMargins}
-		m.viewport.YPosition = headerHeight
-		m.viewport.HighPerformanceRendering = true
+		m.Viewport.YPosition = HeaderHeight
+		m.Viewport.HighPerformanceRendering = true
 		m.Ready = true
-		m.mouseEvent.Y = headerHeight
+		m.MouseData.Y = HeaderHeight
 
-		maxInputLength = m.viewport.Width
-		m.textInput.Model.CharLimit = -1
-		m.textInput.Model.Width = maxInputLength - lipgloss.Width(m.textInput.Model.Prompt)
-		m.textInput.Model.BlinkSpeed = time.Second
-		m.textInput.Model.SetCursorMode(CursorBlink)
+		MaxInputLength = m.Viewport.Width
+		m.TextInput.Model.CharLimit = -1
+		m.TextInput.Model.Width = MaxInputLength - lipgloss.Width(m.TextInput.Model.Prompt)
+		m.TextInput.Model.BlinkSpeed = time.Second
+		m.TextInput.Model.SetCursorMode(CursorBlink)
 
-		m.tableStyle = m.GetBaseStyle()
+		m.TableStyle = m.GetBaseStyle()
 		m.SetViewSlices()
 	} else {
-		m.viewport.Width = msg.Width
-		m.viewport.Height = msg.Height - verticalMargins
+		m.Viewport.Width = msg.Width
+		m.Viewport.Height = msg.Height - verticalMargins
 	}
 
-	if m.viewport.HighPerformanceRendering {
-		return viewport.Sync(m.viewport)
+	if m.Viewport.HighPerformanceRendering {
+		return viewport.Sync(m.Viewport)
 	}
 
 	return nil
 }
 
-// handleKeyboardEvents does that
-func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
+// HandleKeyboardEvents does that
+func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	var (
 		cmd tea.Cmd
 	)
@@ -81,24 +81,24 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	cw := m.CellWidth()
 
 	if m.UI.EditModeEnabled { // handle edit mode
-		handleEditMode(m, str)
+		HandleEditMode(m, str)
 		return cmd
 	} else if m.UI.FormatModeEnabled {
-		if str == "esc" {
-			if m.textInput.Model.Focused() {
-				cmd = m.formatInput.Model.Focus()
-				m.textInput.Model.Blur()
+		if str == "esc" { // cycle focus
+			if m.TextInput.Model.Focused() {
+				cmd = m.FormatInput.Model.Focus()
+				m.TextInput.Model.Blur()
 			} else {
-				cmd = m.textInput.Model.Focus()
-				m.formatInput.Model.Blur()
+				cmd = m.TextInput.Model.Focus()
+				m.FormatInput.Model.Blur()
 			}
 			return cmd
 		}
 
-		if m.textInput.Model.Focused() {
-			handleEditMode(m, str)
+		if m.TextInput.Model.Focused() {
+			HandleEditMode(m, str)
 		} else {
-			handleFormatMode(m, str)
+			HandleFormatMode(m, str)
 		}
 
 		return cmd
@@ -108,16 +108,16 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	switch str {
 	case "t":
 		SelectedTheme = (SelectedTheme + 1) % len(ValidThemes)
-		setStyles()
+		SetStyles()
 		break
 	case "pgdown":
-		for i := 0; i < m.viewport.Height; i++ {
-			scrollDown(m)
+		for i := 0; i < m.Viewport.Height; i++ {
+			ScrollDown(m)
 		}
 		break
 	case "pgup":
-		for i := 0; i < m.viewport.Height; i++ {
-			scrollUp(m)
+		for i := 0; i < m.Viewport.Height; i++ {
+			ScrollUp(m)
 		}
 		break
 	case "r": // redo
@@ -136,7 +136,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 			// handle redo
 			from := m.RedoStack[len(m.RedoStack)-1]
 			to := m.Table
-			swapTableValues(m, &from, &to)
+			SwapTableValues(m, &from, &to)
 			m.Table.Database.SetDatabaseReference(from.Database.GetFileName())
 
 			m.RedoStack = m.RedoStack[0 : len(m.RedoStack)-1] // pop
@@ -158,119 +158,121 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 			// handle undo
 			from := m.UndoStack[len(m.UndoStack)-1]
 			to := m.Table
-			swapTableValues(m, &from, &to)
+			SwapTableValues(m, &from, &to)
 			m.Table.Database.SetDatabaseReference(from.Database.GetFileName())
 
 			m.UndoStack = m.UndoStack[0 : len(m.UndoStack)-1] // pop
 		}
 		break
-	case ":":
+	case ":": // edit mode or format mode depending on string length
 		m.UI.EditModeEnabled = true
-		raw, _, col := m.GetSelectedOption()
-		if m.GetRow() >= len(col) {
+		raw, _, _ := m.GetSelectedOption()
+		if raw == nil {
 			m.UI.EditModeEnabled = false
 			break
 		}
 
 		str := GetStringRepresentationOfInterface(*raw)
-		// so if the selected text is wider than viewport width or if it has newlines do format mode
-		if lipgloss.Width(str+m.textInput.Model.Prompt) > m.viewport.Width || strings.Count(str, "\n") > 0 { // enter format view
-			prepareFormatMode(m)
-			cmd = m.formatInput.Model.Focus()
-			m.preScrollYOffset = m.viewport.YOffset
-			m.preScrollYPosition = m.mouseEvent.Y
-			if conv, err := formatJson(str); err == nil { // if json prettify
-				m.selectionText = conv
+		// so if the selected text is wider than Viewport width or if it has newlines do format mode
+		if lipgloss.Width(str+m.TextInput.Model.Prompt) > m.Viewport.Width ||
+			strings.Count(str, "\n") > 0 { // enter format view
+			PrepareFormatMode(m)
+			cmd = m.FormatInput.Model.Focus() // get focus
+			m.Scroll.PreScrollYOffset = m.Viewport.YOffset // store scrolling so state can be restored on exit
+			m.Scroll.PreScrollYPosition = m.MouseData.Y
+			if conv, err := FormatJson(str); err == nil { // if json prettify
+				m.Data.EditTextBuffer = conv
 			} else {
-				m.selectionText = str
+				m.Data.EditTextBuffer = str
 			}
-			m.formatInput.Original = raw
-			m.Format.Text = getFormattedTextBuffer(m)
+			m.FormatInput.Original = raw // pointer to original data
+			m.Format.Text = GetFormattedTextBuffer(m)
 			m.SetViewSlices()
-			m.formatInput.Model.setCursor(0)
+			m.FormatInput.Model.setCursor(0)
 		} else { // otherwise, edit normally up top
-			m.textInput.Model.SetValue(str)
-			m.formatInput.Model.focus = false
-			m.textInput.Model.focus = true
+			m.TextInput.Model.SetValue(str)
+			m.FormatInput.Model.focus = false
+			m.TextInput.Model.focus = true
 		}
 		break
 	case "p":
 		if m.UI.RenderSelection {
-			WriteTextFile(m, m.selectionText)
+			WriteTextFile(m, m.Data.EditTextBuffer)
 		}
 		break
 	case "c":
-		toggleColumn(m)
+		ToggleColumn(m)
 		break
 	case "b":
 		m.UI.BorderToggle = !m.UI.BorderToggle
 		break
 	case "up", "k": // toggle next schema + 1
-		if m.TableSelection == len(m.TableIndexMap) {
-			m.TableSelection = 1
+		if m.UI.CurrentTable == len(m.Data.TableIndexMap) {
+			m.UI.CurrentTable = 1
 		} else {
-			m.TableSelection++
+			m.UI.CurrentTable++
 		}
 
 		// fix spacing and whatnot
-		m.tableStyle = m.tableStyle.Width(cw)
-		m.mouseEvent.Y = headerHeight
-		m.mouseEvent.X = 0
-		m.viewport.YOffset = 0
-		m.scrollXOffset = 0
+		m.TableStyle = m.TableStyle.Width(cw)
+		m.MouseData.Y = HeaderHeight
+		m.MouseData.X = 0
+		m.Viewport.YOffset = 0
+		m.Scroll.ScrollXOffset = 0
 		break
 	case "down", "j": // toggle previous schema - 1
-		if m.TableSelection == 1 {
-			m.TableSelection = len(m.TableIndexMap)
+		if m.UI.CurrentTable == 1 {
+			m.UI.CurrentTable = len(m.Data.TableIndexMap)
 		} else {
-			m.TableSelection--
+			m.UI.CurrentTable--
 		}
 
 		// fix spacing and whatnot
-		m.tableStyle = m.tableStyle.Width(cw)
-		m.mouseEvent.Y = headerHeight
-		m.mouseEvent.X = 0
-		m.viewport.YOffset = 0
-		m.scrollXOffset = 0
+		m.TableStyle = m.TableStyle.Width(cw)
+		m.MouseData.Y = HeaderHeight
+		m.MouseData.X = 0
+		m.Viewport.YOffset = 0
+		m.Scroll.ScrollXOffset = 0
 		break
 	case "right", "l":
 		headers := m.GetHeaders()
 		headersLen := len(headers)
-		if headersLen > maxHeaders && m.scrollXOffset <= headersLen-maxHeaders {
-			m.scrollXOffset++
+		if headersLen > maxHeaders && m.Scroll.ScrollXOffset <= headersLen-maxHeaders {
+			m.Scroll.ScrollXOffset++
 		}
 		break
 	case "left", "h":
-		if m.scrollXOffset > 0 {
-			m.scrollXOffset--
+		if m.Scroll.ScrollXOffset > 0 {
+			m.Scroll.ScrollXOffset--
 		}
 		break
 	case "s": // manual keyboard control for row ++
 		max := len(m.GetSchemaData()[m.GetHeaders()[m.GetColumn()]])
 
-		if m.mouseEvent.Y-headerHeight+m.viewport.YOffset < max-1 {
-			m.mouseEvent.Y++
-			if m.mouseEvent.Y > m.viewport.Height+headerHeight-1 {
-				scrollDown(m)
-				m.mouseEvent.Y = m.viewport.Height + headerHeight - 1
+		if m.MouseData.Y-HeaderHeight+m.Viewport.YOffset < max-1 {
+			m.MouseData.Y++
+			ceiling := m.Viewport.Height+HeaderHeight-1
+			clamp(m.MouseData.Y, m.MouseData.Y + 1, ceiling)
+			if m.MouseData.Y > ceiling {
+				ScrollDown(m)
 			}
 		}
 
 		break
 	case "w": // manual keyboard control for row --
-		pre := m.mouseEvent.Y
-		if m.viewport.YOffset > 0 && m.mouseEvent.Y == headerHeight {
-			scrollUp(m)
-			m.mouseEvent.Y = pre
-		} else if m.mouseEvent.Y > headerHeight {
-			m.mouseEvent.Y--
+		pre := m.MouseData.Y
+		if m.Viewport.YOffset > 0 && m.MouseData.Y == HeaderHeight {
+			ScrollUp(m)
+			m.MouseData.Y = pre
+		} else if m.MouseData.Y > HeaderHeight {
+			m.MouseData.Y--
 		}
 		break
 	case "d": // manual keyboard control for column ++
 		col := m.GetColumn()
-		cols := len(m.TableHeadersSlice) - 1
-		if (m.mouseEvent.X-m.viewport.Width) <= cw && m.GetColumn() < cols { // within tolerances
-			m.mouseEvent.X += cw
+		cols := len(m.Data.TableHeadersSlice) - 1
+		if (m.MouseData.X-m.Viewport.Width) <= cw && m.GetColumn() < cols { // within tolerances
+			m.MouseData.X += cw
 		} else if col == cols {
 			go Program.Send(tea.KeyMsg{
 				Type: tea.KeyRight,
@@ -279,8 +281,8 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		}
 		break
 	case "a": // manual keyboard control for column --
-		if m.mouseEvent.X-cw >= 0 {
-			m.mouseEvent.X -= cw
+		if m.MouseData.X-cw >= 0 {
+			m.MouseData.X -= cw
 		} else if m.GetColumn() == 0 {
 			go Program.Send(tea.KeyMsg{
 				Type: tea.KeyLeft,
@@ -290,14 +292,14 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		break
 	case "enter": // manual trigger for select highlighted cell
 		if !m.UI.EditModeEnabled {
-			selectOption(m)
+			SelectOption(m)
 		}
 		break
 	case "m": // scroll up manually
-		scrollUp(m)
+		ScrollUp(m)
 		break
 	case "n": // scroll down manually
-		scrollDown(m)
+		ScrollDown(m)
 		break
 	case "esc": // exit full screen cell value view, also enabled edit mode
 		if !m.UI.RenderSelection && !m.UI.HelpDisplay {
@@ -306,12 +308,12 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		}
 		m.UI.RenderSelection = false
 		m.UI.HelpDisplay = false
-		m.selectionText = ""
-		cmd = m.textInput.Model.Focus()
-		m.textInput.Model.SetValue("")
-		m.expandColumn = -1
-		m.mouseEvent.Y = m.preScrollYPosition
-		m.viewport.YOffset = m.preScrollYOffset
+		m.Data.EditTextBuffer = ""
+		cmd = m.TextInput.Model.Focus()
+		m.TextInput.Model.SetValue("")
+		m.UI.ExpandColumn = -1
+		m.MouseData.Y = m.Scroll.PreScrollYPosition
+		m.Viewport.YOffset = m.Scroll.PreScrollYOffset
 		break
 	}
 

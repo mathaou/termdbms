@@ -14,19 +14,19 @@ type LineEdit struct {
 	Original      *interface{}
 }
 
-func exitToDefaultView(m *TuiModel) {
+func ExitToDefaultView(m *TuiModel) {
 	m.UI.EditModeEnabled = false
 	m.UI.FormatModeEnabled = false
 	m.UI.HelpDisplay = false
 	m.UI.CanFormatScroll = false
 	m.Format.CursorY = 0
 	m.Format.CursorX = 0
-	m.Format.Slices = nil
+	m.Format.EditSlices = nil
 	m.Format.Text = nil
 	m.Format.RunningOffsets = nil
-	m.formatInput.Model.Reset()
-	m.textInput.Model.Reset()
-	m.viewport.YOffset = 0
+	m.FormatInput.Model.Reset()
+	m.TextInput.Model.Reset()
+	m.Viewport.YOffset = 0
 }
 
 func BodyLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, input string) {
@@ -40,7 +40,7 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 	)
 
 	if i == ":q" { // quit mod mode
-		exitToDefaultView(m)
+		ExitToDefaultView(m)
 		return
 	}
 	if !m.UI.FormatModeEnabled {
@@ -53,42 +53,42 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 			return
 		} else if input == ":edit" {
 			str := GetStringRepresentationOfInterface(*original)
-			prepareFormatMode(m)
-			if conv, err := formatJson(str); err == nil { // if json prettify
-				m.selectionText = conv
+			PrepareFormatMode(m)
+			if conv, err := FormatJson(str); err == nil { // if json prettify
+				m.Data.EditTextBuffer = conv
 			} else {
-				m.selectionText = str
+				m.Data.EditTextBuffer = str
 			}
-			m.formatInput.Original = original
-			m.Format.Text = getFormattedTextBuffer(m)
+			m.FormatInput.Original = original
+			m.Format.Text = GetFormattedTextBuffer(m)
 			m.SetViewSlices()
-			m.formatInput.Model.setCursor(0)
+			m.FormatInput.Model.setCursor(0)
 			return
 		} else if input == ":new" {
-			prepareFormatMode(m)
-			m.selectionText = "\n"
-			m.formatInput.Original = original
-			m.Format.Text = getFormattedTextBuffer(m)
+			PrepareFormatMode(m)
+			m.Data.EditTextBuffer = "\n"
+			m.FormatInput.Original = original
+			m.Format.Text = GetFormattedTextBuffer(m)
 			m.SetViewSlices()
-			m.formatInput.Model.setCursor(0)
+			m.FormatInput.Model.setCursor(0)
 			return
 		}
 	} else {
-		input = m.selectionText
-		original = m.formatInput.Original
+		input = m.Data.EditTextBuffer
+		original = m.FormatInput.Original
 		if !(i == ":w" || i == ":wq" || i == ":s" || i == ":s!") {
-			m.textInput.Model.SetValue("")
+			m.TextInput.Model.SetValue("")
 			return
 		}
 	}
 
 	if *original == input {
-		exitToDefaultView(m)
+		ExitToDefaultView(m)
 		return
 	}
 
 	if i == ":s" { // saves copy, default filename + :s _____ will save with that filename in cwd
-		exitToDefaultView(m)
+		ExitToDefaultView(m)
 		newFileName, err := m.Serialize()
 		if err != nil {
 			m.DisplayMessage(fmt.Sprintf("%v", err))
@@ -98,7 +98,7 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 
 		return
 	} else if i == ":s!" { // overwrites original - should add confirmation dialog!
-		exitToDefaultView(m)
+		ExitToDefaultView(m)
 		err := m.SerializeOverwrite()
 		if err != nil {
 			m.DisplayMessage(fmt.Sprintf("%v", err))
@@ -140,7 +140,7 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 		break
 	}
 
-	if _, err := formatJson(input); err == nil { // if json prettify
+	if _, err := FormatJson(input); err == nil { // if json uglify
 		input = strings.ReplaceAll(input, " ", "")
 		input = strings.ReplaceAll(input, "\n", "")
 		input = strings.ReplaceAll(input, "\t", "")
@@ -152,12 +152,12 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 	})
 
 	m.UI.EditModeEnabled = false
-	m.selectionText = ""
-	m.formatInput.Model.SetValue("")
+	m.Data.EditTextBuffer = ""
+	m.FormatInput.Model.SetValue("")
 
 	*original = input
 
 	if m.UI.FormatModeEnabled && i == ":wq" {
-		exitToDefaultView(m)
+		ExitToDefaultView(m)
 	}
 }

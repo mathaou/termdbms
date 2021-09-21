@@ -13,46 +13,45 @@ import (
 var (
 	Program          *tea.Program
 	Ascii            bool
-	formatModeOffset int
+	FormatModeOffset int
 )
 
 // styling functions
 var (
-	highlight = func() string {
-		return ThemesMap[SelectedTheme][highlightKey]
+	Highlight = func() string {
+		return ThemesMap[SelectedTheme][HighlightKey]
 	} // change to whatever
-	headerBackground = func() string {
-		return ThemesMap[SelectedTheme][headerBackgroundKey]
+	HeaderBackground = func() string {
+		return ThemesMap[SelectedTheme][HeaderBackgroundKey]
 	}
-	headerBorderBackground = func() string {
-		return ThemesMap[SelectedTheme][headerBorderBackgroundKey]
+	HeaderBorderBackground = func() string {
+		return ThemesMap[SelectedTheme][HeaderBorderBackgroundKey]
 	}
-	headerForeground = func() string {
-		return ThemesMap[SelectedTheme][headerForegroundKey]
+	HeaderForeground = func() string {
+		return ThemesMap[SelectedTheme][HeaderForegroundKey]
 	}
-	footerForegroundColor = func() string {
-		return ThemesMap[SelectedTheme][footerForegroundColorKey]
+	FooterForeground = func() string {
+		return ThemesMap[SelectedTheme][FooterForegroundColorKey]
 	}
-	headerBottomColor = func() string {
-		return ThemesMap[SelectedTheme][headerBottomColorKey]
+	HeaderBottom = func() string {
+		return ThemesMap[SelectedTheme][HeaderBottomColorKey]
 	}
-	headerTopForegroundColor = func() string {
-		return ThemesMap[SelectedTheme][headerTopForegroundColorKey]
+	HeaderTopForeground = func() string {
+		return ThemesMap[SelectedTheme][HeaderTopForegroundColorKey]
 	}
-	borderColor = func() string {
-		return ThemesMap[SelectedTheme][borderColorKey]
+	BorderColor = func() string {
+		return ThemesMap[SelectedTheme][BorderColorKey]
 	}
-	textColor = func() string {
-		return ThemesMap[SelectedTheme][textColorKey]
+	TextColor = func() string {
+		return ThemesMap[SelectedTheme][TextColorKey]
 	}
 )
 
-func getOffsetForLineNumber(a int) int {
-	return formatModeOffset - len(strconv.Itoa(a))
+func GetOffsetForLineNumber(a int) int {
+	return FormatModeOffset - len(strconv.Itoa(a))
 }
 
-// selectOption does just that
-func selectOption(m *TuiModel) {
+func SelectOption(m *TuiModel) {
 	if m.UI.RenderSelection || m.UI.HelpDisplay {
 		return
 	}
@@ -63,28 +62,28 @@ func selectOption(m *TuiModel) {
 		return
 	}
 	l := len(col)
-	row := m.viewport.YOffset + m.mouseEvent.Y - headerHeight
+	row := m.Viewport.YOffset + m.MouseData.Y - HeaderHeight
 
 	if row <= l && l > 0 &&
-		m.mouseEvent.Y >= headerHeight &&
-		m.mouseEvent.Y < m.viewport.Height+headerHeight &&
-		m.mouseEvent.X < m.CellWidth()*(len(m.TableHeadersSlice)) {
+		m.MouseData.Y >= HeaderHeight &&
+		m.MouseData.Y < m.Viewport.Height+HeaderHeight &&
+		m.MouseData.X < m.CellWidth()*(len(m.Data.TableHeadersSlice)) {
 		if conv, ok := (*raw).(string); ok {
-			m.selectionText = conv
+			m.Data.EditTextBuffer = conv
 		} else {
-			m.selectionText = ""
+			m.Data.EditTextBuffer = ""
 		}
 	} else {
 		m.UI.RenderSelection = false
 	}
 }
 
-func swapTableValues(m *TuiModel, f, t *TableState) {
+func SwapTableValues(m *TuiModel, f, t *TableState) {
 	from := &f.Data
 	to := &t.Data
 	for k, v := range *from {
 		if copyValues, ok := v.(map[string][]interface{}); ok {
-			columnNames := m.TableHeaders[k]
+			columnNames := m.Data.TableHeaders[k]
 			columnValues := make(map[string][]interface{})
 			// golang wizardry
 			columns := make([]interface{}, len(columnNames))
@@ -102,65 +101,65 @@ func swapTableValues(m *TuiModel, f, t *TableState) {
 	}
 }
 
-func toggleColumn(m *TuiModel) {
-	if m.expandColumn > -1 {
-		m.expandColumn = -1
+func ToggleColumn(m *TuiModel) {
+	if m.UI.ExpandColumn > -1 {
+		m.UI.ExpandColumn = -1
 	} else {
-		m.expandColumn = m.GetColumn()
+		m.UI.ExpandColumn = m.GetColumn()
 	}
 }
 
-// scrollDown is a simple function to move the viewport down
-func scrollDown(m *TuiModel) {
-	if m.UI.FormatModeEnabled && m.UI.CanFormatScroll && m.viewport.YPosition != 0 {
-		m.viewport.YOffset++
+// ScrollDown is a simple function to move the Viewport down
+func ScrollDown(m *TuiModel) {
+	if m.UI.FormatModeEnabled && m.UI.CanFormatScroll && m.Viewport.YPosition != 0 {
+		m.Viewport.YOffset++
 		return
 	}
 
-	max := getScrollDownMaxForSelection(m)
+	max := GetScrollDownMaximumForSelection(m)
 
-	if m.viewport.YOffset < max-m.viewport.Height {
-		m.viewport.YOffset++
-		m.mouseEvent.Y = Min(m.mouseEvent.Y, m.viewport.YOffset)
+	if m.Viewport.YOffset < max-m.Viewport.Height {
+		m.Viewport.YOffset++
+		m.MouseData.Y = Min(m.MouseData.Y, m.Viewport.YOffset)
 	}
 
 	if !m.UI.RenderSelection {
-		m.preScrollYPosition = m.mouseEvent.Y
-		m.preScrollYOffset = m.viewport.YOffset
+		m.Scroll.PreScrollYPosition = m.MouseData.Y
+		m.Scroll.PreScrollYOffset = m.Viewport.YOffset
 	}
 }
 
-// scrollUp is a simple function to move the viewport up
-func scrollUp(m *TuiModel) {
-	if m.UI.FormatModeEnabled && m.UI.CanFormatScroll && m.viewport.YOffset > 0 && m.viewport.YPosition != 0 {
-		m.viewport.YOffset--
+// ScrollUp is a simple function to move the Viewport up
+func ScrollUp(m *TuiModel) {
+	if m.UI.FormatModeEnabled && m.UI.CanFormatScroll && m.Viewport.YOffset > 0 && m.Viewport.YPosition != 0 {
+		m.Viewport.YOffset--
 		return
 	}
 
-	if m.viewport.YOffset > 0 {
-		m.viewport.YOffset--
-		m.mouseEvent.Y = Min(m.mouseEvent.Y, m.viewport.YOffset)
+	if m.Viewport.YOffset > 0 {
+		m.Viewport.YOffset--
+		m.MouseData.Y = Min(m.MouseData.Y, m.Viewport.YOffset)
 	} else {
-		m.mouseEvent.Y = headerHeight
+		m.MouseData.Y = HeaderHeight
 	}
 
 	if !m.UI.RenderSelection {
-		m.preScrollYPosition = m.mouseEvent.Y
-		m.preScrollYOffset = m.viewport.YOffset
+		m.Scroll.PreScrollYPosition = m.MouseData.Y
+		m.Scroll.PreScrollYOffset = m.Viewport.YOffset
 	}
 }
 
 // TABLE STUFF
 
-// displayTable does some fancy stuff to get a table rendered in text
-func displayTable(m *TuiModel) string {
+// DisplayTable does some fancy stuff to get a table rendered in text
+func DisplayTable(m *TuiModel) string {
 	var (
 		builder []string
 	)
 
 	// go through all columns
-	for c, columnName := range m.TableHeadersSlice {
-		if m.expandColumn > -1 && m.expandColumn != c {
+	for c, columnName := range m.Data.TableHeadersSlice {
+		if m.UI.ExpandColumn > -1 && m.UI.ExpandColumn != c {
 			continue
 		}
 
@@ -168,7 +167,7 @@ func displayTable(m *TuiModel) string {
 			rowBuilder []string
 		)
 
-		columnValues := m.DataSlices[columnName]
+		columnValues := m.Data.TableSlices[columnName]
 		for r, val := range columnValues {
 			base := m.GetBaseStyle().
 				UnsetBorderLeft().
@@ -179,7 +178,7 @@ func displayTable(m *TuiModel) string {
 			// handle highlighting
 			if c == m.GetColumn() && r == m.GetRow() {
 				if !Ascii {
-					base.Foreground(lipgloss.Color(highlight()))
+					base.Foreground(lipgloss.Color(Highlight()))
 				} else if Ascii {
 					s = "|" + s
 				}
@@ -188,7 +187,7 @@ func displayTable(m *TuiModel) string {
 			rowBuilder = append(rowBuilder, base.Render(TruncateIfApplicable(m, s)))
 		}
 
-		for len(rowBuilder) < m.viewport.Height { // fix spacing issues
+		for len(rowBuilder) < m.Viewport.Height { // fix spacing issues
 			rowBuilder = append(rowBuilder, "")
 		}
 
@@ -201,11 +200,11 @@ func displayTable(m *TuiModel) string {
 	return lipgloss.JoinHorizontal(lipgloss.Left, builder...)
 }
 
-func getFormattedTextBuffer(m *TuiModel) []string {
-	v := m.selectionText
+func GetFormattedTextBuffer(m *TuiModel) []string {
+	v := m.Data.EditTextBuffer
 
 	lines := SplitLines(v)
-	formatModeOffset = len(strconv.Itoa(len(lines))) + 1 // number of characters in the numeric string
+	FormatModeOffset = len(strconv.Itoa(len(lines))) + 1 // number of characters in the numeric string
 
 	var ret []string
 	m.Format.RunningOffsets = []int{}
@@ -214,8 +213,8 @@ func getFormattedTextBuffer(m *TuiModel) []string {
 	strlen := 0
 	for i, v := range lines {
 		xOffset := len(strconv.Itoa(i))
-		totalOffset := Max(formatModeOffset-xOffset, 0)
-		//wrap := wordwrap.String(v, m.viewport.Width-totalOffset)
+		totalOffset := Max(FormatModeOffset-xOffset, 0)
+		//wrap := wordwrap.String(v, m.Viewport.Width-totalOffset)
 
 		right := Indent(
 			v,
@@ -233,24 +232,24 @@ func getFormattedTextBuffer(m *TuiModel) []string {
 	// need to add this so that the last line can be edited
 	m.Format.RunningOffsets = append(m.Format.RunningOffsets,
 		m.Format.RunningOffsets[lineLength-1]+
-			len(ret[len(ret)-1][formatModeOffset:]))
+			len(ret[len(ret)-1][FormatModeOffset:]))
 
-	for i := len(ret); i < m.viewport.Height; i++ {
+	for i := len(ret); i < m.Viewport.Height; i++ {
 		ret = append(ret, "")
 	}
 
 	return ret
 }
 
-func displayFormatBuffer(m *TuiModel) string {
-	cpy := make([]string, len(m.Format.Slices))
-	for i, v := range m.Format.Slices {
+func DisplayFormatText(m *TuiModel) string {
+	cpy := make([]string, len(m.Format.EditSlices))
+	for i, v := range m.Format.EditSlices {
 		cpy[i] = *v
 	}
 	newY := ""
 	line := &cpy[Min(m.Format.CursorY, len(cpy)-1)]
 	x := 0
-	offset := formatModeOffset - 1
+	offset := FormatModeOffset - 1
 	for _, r := range *line {
 		newY += string(r)
 		if x == m.Format.CursorX+offset {
@@ -274,32 +273,32 @@ func displayFormatBuffer(m *TuiModel) string {
 	return ret
 }
 
-// displaySelection does that or writes it to a file if the selection is over a limit
-func displaySelection(m *TuiModel) string {
+// DisplaySelection does that or writes it to a file if the selection is over a limit
+func DisplaySelection(m *TuiModel) string {
 	col := m.GetColumnData()
 	row := m.GetRow()
-	m.expandColumn = m.GetColumn()
-	if m.mouseEvent.Y >= m.viewport.Height+headerHeight &&
+	m.UI.ExpandColumn = m.GetColumn()
+	if m.MouseData.Y >= m.Viewport.Height+HeaderHeight &&
 		!m.UI.RenderSelection { // this is for when the selection is outside the bounds
-		return displayTable(m)
+		return DisplayTable(m)
 	}
 
 	base := m.GetBaseStyle()
 
-	if m.selectionText != "" { // this is basically just if its a string follow these rules
-		conv := m.selectionText
-		if c, err := formatJson(m.selectionText); err == nil {
+	if m.Data.EditTextBuffer != "" { // this is basically just if its a string follow these rules
+		conv := m.Data.EditTextBuffer
+		if c, err := FormatJson(m.Data.EditTextBuffer); err == nil {
 			conv = c
 		}
-		rows := SplitLines(wordwrap.String(conv, m.viewport.Width))
+		rows := SplitLines(wordwrap.String(conv, m.Viewport.Width))
 		min := 0
-		if len(rows) > m.viewport.Height {
-			min = m.viewport.YOffset
+		if len(rows) > m.Viewport.Height {
+			min = m.Viewport.YOffset
 		}
-		max := min + m.viewport.Height
+		max := min + m.Viewport.Height
 		rows = rows[min:Min(len(rows), max)]
 
-		for len(rows) < m.viewport.Height {
+		for len(rows) < m.Viewport.Height {
 			rows = append(rows, "")
 		}
 		return base.Render(lipgloss.JoinVertical(lipgloss.Left, rows...))
@@ -320,11 +319,11 @@ func displaySelection(m *TuiModel) string {
 	}
 
 	lines := SplitLines(prettyPrint)
-	for len(lines) < m.viewport.Height {
+	for len(lines) < m.Viewport.Height {
 		lines = append(lines, "")
 	}
 
 	prettyPrint = base.Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
 
-	return wordwrap.String(prettyPrint, m.viewport.Width)
+	return wordwrap.String(prettyPrint, m.Viewport.Width)
 }

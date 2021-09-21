@@ -23,9 +23,9 @@ const (
 
 func TruncateIfApplicable(m *TuiModel, conv string) (s string) {
 	max := 0
-	viewportWidth := m.viewport.Width
+	viewportWidth := m.Viewport.Width
 	cellWidth := m.CellWidth()
-	if m.UI.RenderSelection || m.expandColumn > -1 || m.UI.HelpDisplay {
+	if m.UI.RenderSelection || m.UI.ExpandColumn > -1 || m.UI.HelpDisplay {
 		max = viewportWidth
 	} else {
 		max = cellWidth
@@ -150,7 +150,7 @@ func (m *TuiModel) CopyMap() (to map[string]interface{}) {
 
 	for k, v := range from {
 		if copyValues, ok := v.(map[string][]interface{}); ok {
-			columnNames := m.TableHeaders[k]
+			columnNames := m.Data.TableHeaders[k]
 			columnValues := make(map[string][]interface{})
 			// golang wizardry
 			columns := make([]interface{}, len(columnNames))
@@ -161,11 +161,11 @@ func (m *TuiModel) CopyMap() (to map[string]interface{}) {
 
 			for i, colName := range columnNames {
 				val := columns[i].([]interface{})
-				copy := make([]interface{}, len(val))
+				buffer := make([]interface{}, len(val))
 				for k := range val {
-					copy[k] = val[k]
+					buffer[k] = val[k]
 				}
-				columnValues[colName] = append(columnValues[colName], copy)
+				columnValues[colName] = append(columnValues[colName], buffer)
 			}
 
 			to[k] = columnValues // data for schema, organized by column
@@ -175,29 +175,29 @@ func (m *TuiModel) CopyMap() (to map[string]interface{}) {
 	return to
 }
 
-// assembleTable shows either the selection text or the table
-func assembleTable(m *TuiModel) string {
+// AssembleTable shows either the selection text or the table
+func AssembleTable(m *TuiModel) string {
 	if m.UI.HelpDisplay {
 		return GetHelpText()
 	}
 	if m.UI.RenderSelection {
-		return displaySelection(m)
+		return DisplaySelection(m)
 	}
 	if m.UI.FormatModeEnabled {
-		return displayFormatBuffer(m)
+		return DisplayFormatText(m)
 	}
 
-	return displayTable(m)
+	return DisplayTable(m)
 }
 
-func getScrollDownMaxForSelection(m *TuiModel) int {
+func GetScrollDownMaximumForSelection(m *TuiModel) int {
 	max := 0
 	if m.UI.RenderSelection {
-		conv, _ := formatJson(m.selectionText)
+		conv, _ := FormatJson(m.Data.EditTextBuffer)
 		lines := SplitLines(conv)
 		max = len(lines)
 	} else if m.UI.FormatModeEnabled {
-		max = len(SplitLines(displayFormatBuffer(m)))
+		max = len(SplitLines(DisplayFormatText(m)))
 	} else {
 		return len(m.GetColumnData())
 	}
@@ -205,8 +205,8 @@ func getScrollDownMaxForSelection(m *TuiModel) int {
 	return max
 }
 
-// formatJson is some more code I stole off stackoverflow
-func formatJson(str string) (string, error) {
+// FormatJson is some more code I stole off stackoverflow
+func FormatJson(str string) (string, error) {
 	b := []byte(str)
 	if !json.Valid(b) { // return original string if not json
 		return str, errors.New("this is not valid JSON")
