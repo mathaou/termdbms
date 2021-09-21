@@ -16,17 +16,48 @@ var (
 	formatModeOffset int
 )
 
+// styling functions
+var (
+	highlight = func() string {
+		return ThemesMap[SelectedTheme][highlightKey]
+	} // change to whatever
+	headerBackground = func() string {
+		return ThemesMap[SelectedTheme][headerBackgroundKey]
+	}
+	headerBorderBackground = func() string {
+		return ThemesMap[SelectedTheme][headerBorderBackgroundKey]
+	}
+	headerForeground = func() string {
+		return ThemesMap[SelectedTheme][headerForegroundKey]
+	}
+	footerForegroundColor = func() string {
+		return ThemesMap[SelectedTheme][footerForegroundColorKey]
+	}
+	headerBottomColor = func() string {
+		return ThemesMap[SelectedTheme][headerBottomColorKey]
+	}
+	headerTopForegroundColor = func() string {
+		return ThemesMap[SelectedTheme][headerTopForegroundColorKey]
+	}
+	borderColor = func() string {
+		return ThemesMap[SelectedTheme][borderColorKey]
+	}
+	textColor = func() string {
+		return ThemesMap[SelectedTheme][textColorKey]
+	}
+)
+
 func getOffsetForLineNumber(a int) int {
 	return formatModeOffset - len(strconv.Itoa(a))
 }
 
 // selectOption does just that
 func selectOption(m *TuiModel) {
-	if m.renderSelection || m.helpDisplay {
+	if m.UI.RenderSelection || m.UI.HelpDisplay {
 		return
 	}
 
-	m.renderSelection = true
+	m.UI.RenderSelection = true
 	raw, _, col := m.GetSelectedOption()
 	if raw == nil {
 		return
@@ -44,7 +75,7 @@ func selectOption(m *TuiModel) {
 			m.selectionText = ""
 		}
 	} else {
-		m.renderSelection = false
+		m.UI.RenderSelection = false
 	}
 }
 
@@ -81,7 +112,7 @@ func toggleColumn(m *TuiModel) {
 
 // scrollDown is a simple function to move the viewport down
 func scrollDown(m *TuiModel) {
-	if m.formatModeEnabled && m.CanFormatScroll && m.viewport.YPosition != 0 {
+	if m.UI.FormatModeEnabled && m.UI.CanFormatScroll && m.viewport.YPosition != 0 {
 		m.viewport.YOffset++
 		return
 	}
@@ -93,7 +124,7 @@ func scrollDown(m *TuiModel) {
 		m.mouseEvent.Y = Min(m.mouseEvent.Y, m.viewport.YOffset)
 	}
 
-	if !m.renderSelection {
+	if !m.UI.RenderSelection {
 		m.preScrollYPosition = m.mouseEvent.Y
 		m.preScrollYOffset = m.viewport.YOffset
 	}
@@ -101,7 +132,7 @@ func scrollDown(m *TuiModel) {
 
 // scrollUp is a simple function to move the viewport up
 func scrollUp(m *TuiModel) {
-	if m.formatModeEnabled && m.CanFormatScroll && m.viewport.YOffset > 0 && m.viewport.YPosition != 0 {
+	if m.UI.FormatModeEnabled && m.UI.CanFormatScroll && m.viewport.YOffset > 0 && m.viewport.YPosition != 0 {
 		m.viewport.YOffset--
 		return
 	}
@@ -113,7 +144,7 @@ func scrollUp(m *TuiModel) {
 		m.mouseEvent.Y = headerHeight
 	}
 
-	if !m.renderSelection {
+	if !m.UI.RenderSelection {
 		m.preScrollYPosition = m.mouseEvent.Y
 		m.preScrollYOffset = m.viewport.YOffset
 	}
@@ -249,7 +280,7 @@ func displaySelection(m *TuiModel) string {
 	row := m.GetRow()
 	m.expandColumn = m.GetColumn()
 	if m.mouseEvent.Y >= m.viewport.Height+headerHeight &&
-		!m.renderSelection { // this is for when the selection is outside the bounds
+		!m.UI.RenderSelection { // this is for when the selection is outside the bounds
 		return displayTable(m)
 	}
 

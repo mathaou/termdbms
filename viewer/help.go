@@ -2,7 +2,6 @@ package viewer
 
 func GetHelpText() (help string) {
 	help = `
-
 ##### Help:
 	-p	database path (absolute)
     -d      specifies which database driver to use (sqlite/mysql)

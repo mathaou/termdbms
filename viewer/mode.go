@@ -21,8 +21,8 @@ var (
 )
 
 func prepareFormatMode(m *TuiModel) {
-	m.formatModeEnabled = true
-	m.editModeEnabled = false
+	m.UI.FormatModeEnabled = true
+	m.UI.EditModeEnabled = false
 	m.textInput.Model.SetValue("")
 	m.formatInput.Model.SetValue("")
 	m.formatInput.Model.focus = true

@@ -25,7 +25,7 @@ func TruncateIfApplicable(m *TuiModel, conv string) (s string) {
 	max := 0
 	viewportWidth := m.viewport.Width
 	cellWidth := m.CellWidth()
-	if m.renderSelection || m.expandColumn > -1 || m.helpDisplay {
+	if m.UI.RenderSelection || m.expandColumn > -1 || m.UI.HelpDisplay {
 		max = viewportWidth
 	} else {
 		max = cellWidth
@@ -177,13 +177,13 @@ func (m *TuiModel) CopyMap() (to map[string]interface{}) {
 
 // assembleTable shows either the selection text or the table
 func assembleTable(m *TuiModel) string {
-	if m.helpDisplay {
+	if m.UI.HelpDisplay {
 		return GetHelpText()
 	}
-	if m.renderSelection {
+	if m.UI.RenderSelection {
 		return displaySelection(m)
 	}
-	if m.formatModeEnabled {
+	if m.UI.FormatModeEnabled {
 		return displayFormatBuffer(m)
 	}
 
@@ -192,11 +192,11 @@ func assembleTable(m *TuiModel) string {
 
 func getScrollDownMaxForSelection(m *TuiModel) int {
 	max := 0
-	if m.renderSelection {
+	if m.UI.RenderSelection {
 		conv, _ := formatJson(m.selectionText)
 		lines := SplitLines(conv)
 		max = len(lines)
-	} else if m.formatModeEnabled {
+	} else if m.UI.FormatModeEnabled {
 		max = len(SplitLines(displayFormatBuffer(m)))
 	} else {
 		return len(m.GetColumnData())

@@ -1,22 +1,22 @@
 package viewer
 
 const (
-	highlightKey = "highlight"
-	headerBackgroundKey = "headerBackground"
-	headerBorderBackgroundKey = "headerBorderBackground"
-	headerForegroundKey = "headerForeground"
-	footerForegroundColorKey = "footerForegroundColor"
-	headerBottomColorKey = "headerBottomColor"
+	highlightKey                = "highlight"
+	headerBackgroundKey         = "headerBackground"
+	headerBorderBackgroundKey   = "headerBorderBackground"
+	headerForegroundKey         = "headerForeground"
+	footerForegroundColorKey    = "footerForegroundColor"
+	headerBottomColorKey        = "headerBottomColor"
 	headerTopForegroundColorKey = "headerTopForegroundColor"
-	borderColorKey = "borderColor"
-	textColorKey = "textColor"
+	borderColorKey              = "borderColor"
+	textColorKey                = "textColor"
 )
 
 var (
 	SelectedTheme = 0
 	ValidThemes   = []string{
-		"default", // 0
-		"nord",   // 1
+		"default",   // 0
+		"nord",      // 1
 		"solarized", // not accurate but whatever
 	}
 	ThemesMap = map[int]map[string]string{

@@ -10,6 +10,14 @@ var maxHeaders int
 // GetNewModel returns a TuiModel struct with some fields set
 func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 	m := TuiModel{
+		UI: UIState{
+			CanFormatScroll:   false,
+			RenderSelection:   false,
+			HelpDisplay:       false,
+			EditModeEnabled:   false,
+			FormatModeEnabled: false,
+			BorderToggle:      false,
+		},
 		Table: TableState{
 			Database: &SQLite{
 				FileName: baseFileName,
@@ -24,14 +32,11 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 			CursorX:        0,
 			CursorY:        0,
 		},
-		TableHeaders:    make(map[string][]string),
-		DataSlices:      make(map[string][]interface{}),
-		TableIndexMap:   make(map[int]string),
-		TableSelection:  0,
-		expandColumn:    -1,
-		ready:           false,
-		renderSelection: false,
-		editModeEnabled: false,
+		TableHeaders:   make(map[string][]string),
+		DataSlices:     make(map[string][]interface{}),
+		TableIndexMap:  make(map[int]string),
+		TableSelection: 0,
+		expandColumn:   -1,
 		textInput: LineEdit{
 			Model:         NewModel(),
 			EnterBehavior: HeaderLineEditEnterBehavior,
@@ -76,7 +81,7 @@ func (m *TuiModel) GetBaseStyle() lipgloss.Style {
 		Width(cw).
 		Align(lipgloss.Left)
 
-	if m.borderToggle && !Ascii {
+	if m.UI.BorderToggle && !Ascii {
 		s = s.BorderLeft(true).
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderForeground(lipgloss.Color(borderColor()))
@@ -88,7 +93,7 @@ func (m *TuiModel) GetBaseStyle() lipgloss.Style {
 // GetColumn gets the column the mouse cursor is in
 func (m *TuiModel) GetColumn() int {
 	baseVal := m.mouseEvent.X / m.CellWidth()
-	if m.renderSelection || m.editModeEnabled || m.formatModeEnabled {
+	if m.UI.RenderSelection || m.UI.EditModeEnabled || m.UI.FormatModeEnabled {
 		return m.scrollXOffset + baseVal
 	}
 
@@ -98,9 +103,9 @@ func (m *TuiModel) GetColumn() int {
 // GetRow does math to get a valid row that's helpful
 func (m *TuiModel) GetRow() int {
 	baseVal := Max(m.mouseEvent.Y-headerHeight, 0)
-	if m.renderSelection || m.editModeEnabled {
+	if m.UI.RenderSelection || m.UI.EditModeEnabled {
 		return m.viewport.YOffset + baseVal
-	} else if m.formatModeEnabled {
+	} else if m.UI.FormatModeEnabled {
 		return m.preScrollYOffset + baseVal
 	}
 	return baseVal
@@ -117,7 +122,7 @@ func (m *TuiModel) GetHeaders() []string {
 }
 
 func (m *TuiModel) SetViewSlices() {
-	if m.formatModeEnabled {
+	if m.UI.FormatModeEnabled {
 		var slices []*string
 		for i := 0; i < m.viewport.Height; i++ {
 			yOffset := Max(m.viewport.YOffset, 0)
@@ -128,7 +133,7 @@ func (m *TuiModel) SetViewSlices() {
 			slices = append(slices, pStr)
 		}
 		m.Format.Slices = slices
-		m.CanFormatScroll = len(m.Format.Text)-m.viewport.YOffset-m.viewport.Height > 0
+		m.UI.CanFormatScroll = len(m.Format.Text)-m.viewport.YOffset-m.viewport.Height > 0
 		if m.Format.CursorX < 0 {
 			m.Format.CursorX = 0
 		}
@@ -188,7 +193,7 @@ func (m *TuiModel) GetRowData() map[string]interface{} {
 }
 
 func (m *TuiModel) GetSelectedOption() (*interface{}, int, []interface{}) {
-	if !m.formatModeEnabled {
+	if !m.UI.FormatModeEnabled {
 		m.preScrollYOffset = m.viewport.YOffset
 		m.preScrollYPosition = m.mouseEvent.Y
 	}
@@ -202,8 +207,8 @@ func (m *TuiModel) GetSelectedOption() (*interface{}, int, []interface{}) {
 
 func (m *TuiModel) DisplayMessage(msg string) {
 	m.selectionText = msg
-	m.editModeEnabled = false
-	m.renderSelection = true
+	m.UI.EditModeEnabled = false
+	m.UI.RenderSelection = true
 }
 
 func (m *TuiModel) GetSelectedLineEdit() *LineEdit {

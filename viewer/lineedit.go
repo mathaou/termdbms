@@ -15,18 +15,18 @@ type LineEdit struct {
 }
 
 func exitToDefaultView(m *TuiModel) {
-	m.editModeEnabled = false
-	m.formatModeEnabled = false
-	m.helpDisplay = false
+	m.UI.EditModeEnabled = false
+	m.UI.FormatModeEnabled = false
+	m.UI.HelpDisplay = false
+	m.UI.CanFormatScroll = false
 	m.Format.CursorY = 0
 	m.Format.CursorX = 0
-	m.viewport.YOffset = 0
-	m.Format.RunningOffsets = nil
 	m.Format.Slices = nil
-	m.CanFormatScroll = false
 	m.Format.Text = nil
+	m.Format.RunningOffsets = nil
 	m.formatInput.Model.Reset()
 	m.textInput.Model.Reset()
+	m.viewport.YOffset = 0
 }
 
 func BodyLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, input string) {
@@ -43,12 +43,12 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 		exitToDefaultView(m)
 		return
 	}
-	if !m.formatModeEnabled {
+	if !m.UI.FormatModeEnabled {
 		input = i
 		raw, _, _ := m.GetSelectedOption()
 		original = raw
 		if input == ":h" {
-			m.helpDisplay = true
+			m.UI.HelpDisplay = true
 			m.DisplayMessage(GetHelpText())
 			return
 		} else if input == ":edit" {
@@ -151,13 +151,13 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 		Update: GetInterfaceFromString(input, original),
 	})
 
-	m.editModeEnabled = false
+	m.UI.EditModeEnabled = false
 	m.selectionText = ""
 	m.formatInput.Model.SetValue("")
 
 	*original = input
 
-	if m.formatModeEnabled && i == ":wq" {
+	if m.UI.FormatModeEnabled && i == ":wq" {
 		exitToDefaultView(m)
 	}
 }

@@ -16,22 +16,22 @@ const (
 func handleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
 	switch msg.Type {
 	case tea.MouseWheelDown:
-		if !m.editModeEnabled {
+		if !m.UI.EditModeEnabled {
 			scrollDown(m)
 		}
 		break
 	case tea.MouseWheelUp:
-		if !m.editModeEnabled {
+		if !m.UI.EditModeEnabled {
 			scrollUp(m)
 		}
 		break
 	case tea.MouseLeft:
-		if !m.editModeEnabled && !m.formatModeEnabled && m.GetRow() < len(m.GetColumnData()) {
+		if !m.UI.EditModeEnabled && !m.UI.FormatModeEnabled && m.GetRow() < len(m.GetColumnData()) {
 			selectOption(m)
 		}
 		break
 	default:
-		if !m.renderSelection && !m.editModeEnabled && !m.helpDisplay && !m.formatModeEnabled {
+		if !m.UI.RenderSelection && !m.UI.EditModeEnabled && !m.UI.HelpDisplay && !m.UI.FormatModeEnabled {
 			m.mouseEvent = tea.MouseEvent(*msg)
 		}
 		break
@@ -42,13 +42,13 @@ func handleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
 func handleWidowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 	verticalMargins := headerHeight + footerHeight
 
-	if !m.ready {
+	if !m.Ready {
 		m.viewport = viewport.Model{
 			Width:  msg.Width,
 			Height: msg.Height - verticalMargins}
 		m.viewport.YPosition = headerHeight
 		m.viewport.HighPerformanceRendering = true
-		m.ready = true
+		m.Ready = true
 		m.mouseEvent.Y = headerHeight
 
 		maxInputLength = m.viewport.Width
@@ -80,10 +80,10 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	str := msg.String()
 	cw := m.CellWidth()
 
-	if m.editModeEnabled { // handle edit mode
+	if m.UI.EditModeEnabled { // handle edit mode
 		handleEditMode(m, str)
 		return cmd
-	} else if m.formatModeEnabled {
+	} else if m.UI.FormatModeEnabled {
 		if str == "esc" {
 			if m.textInput.Model.Focused() {
 				cmd = m.formatInput.Model.Focus()
@@ -165,10 +165,10 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		}
 		break
 	case ":":
-		m.editModeEnabled = true
+		m.UI.EditModeEnabled = true
 		raw, _, col := m.GetSelectedOption()
 		if m.GetRow() >= len(col) {
-			m.editModeEnabled = false
+			m.UI.EditModeEnabled = false
 			break
 		}
 
@@ -195,7 +195,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		}
 		break
 	case "p":
-		if m.renderSelection {
+		if m.UI.RenderSelection {
 			WriteTextFile(m, m.selectionText)
 		}
 		break
@@ -203,7 +203,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		toggleColumn(m)
 		break
 	case "b":
-		m.borderToggle = !m.borderToggle
+		m.UI.BorderToggle = !m.UI.BorderToggle
 		break
 	case "up", "k": // toggle next schema + 1
 		if m.TableSelection == len(m.TableIndexMap) {
@@ -289,7 +289,7 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		}
 		break
 	case "enter": // manual trigger for select highlighted cell
-		if !m.editModeEnabled {
+		if !m.UI.EditModeEnabled {
 			selectOption(m)
 		}
 		break
@@ -300,12 +300,12 @@ func handleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		scrollDown(m)
 		break
 	case "esc": // exit full screen cell value view, also enabled edit mode
-		if !m.renderSelection && !m.helpDisplay {
-			m.editModeEnabled = true
+		if !m.UI.RenderSelection && !m.UI.HelpDisplay {
+			m.UI.EditModeEnabled = true
 			break
 		}
-		m.renderSelection = false
-		m.helpDisplay = false
+		m.UI.RenderSelection = false
+		m.UI.HelpDisplay = false
 		m.selectionText = ""
 		cmd = m.textInput.Model.Focus()
 		m.textInput.Model.SetValue("")

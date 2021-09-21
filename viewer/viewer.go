@@ -25,41 +25,19 @@ const (
 	maximumRendererCharacters = math.MaxInt32
 )
 
-// styling functions
-var (
-	highlight = func() string {
-		return ThemesMap[SelectedTheme][highlightKey]
-	} // change to whatever
-	headerBackground = func() string {
-		return ThemesMap[SelectedTheme][headerBackgroundKey]
-	}
-	headerBorderBackground = func() string {
-		return ThemesMap[SelectedTheme][headerBorderBackgroundKey]
-	}
-	headerForeground = func() string {
-		return ThemesMap[SelectedTheme][headerForegroundKey]
-	}
-	footerForegroundColor = func() string {
-		return ThemesMap[SelectedTheme][footerForegroundColorKey]
-	}
-	headerBottomColor = func() string {
-		return ThemesMap[SelectedTheme][headerBottomColorKey]
-	}
-	headerTopForegroundColor = func() string {
-		return ThemesMap[SelectedTheme][headerTopForegroundColorKey]
-	}
-	borderColor = func() string {
-		return ThemesMap[SelectedTheme][borderColorKey]
-	}
-	textColor = func() string {
-		return ThemesMap[SelectedTheme][textColorKey]
-	}
-)
-
 // TableState holds everything needed to save/serialize state
 type TableState struct {
 	Database Database
 	Data     map[string]interface{}
+}
+
+type UIState struct {
+	CanFormatScroll   bool
+	RenderSelection   bool // render mode
+	HelpDisplay       bool // help display mode
+	EditModeEnabled   bool // edit mode
+	FormatModeEnabled bool
+	BorderToggle      bool
 }
 
 type FormatState struct {
@@ -74,23 +52,18 @@ type FormatState struct {
 type TuiModel struct {
 	Table              TableState // all non-destructive changes are TableStates getting passed around
 	Format             FormatState
+	UI                 UIState
+	Ready              bool
 	TableHeaders       map[string][]string // keeps track of which schema has which headers
 	TableHeadersSlice  []string
 	DataSlices         map[string][]interface{}
 	TableIndexMap      map[int]string // keeps the schemas in order
 	TableSelection     int
 	InitialFileName    string // used if saving destructively
-	CanFormatScroll    bool
-	ready              bool
-	renderSelection    bool // render mode
-	helpDisplay        bool // help display mode
-	editModeEnabled    bool // edit mode
-	formatModeEnabled  bool
 	selectionText      string
 	preScrollYOffset   int
 	preScrollYPosition int
 	scrollXOffset      int
-	borderToggle       bool
 	expandColumn       int
 	viewport           viewport.Model
 	tableStyle         lipgloss.Style
@@ -132,9 +105,9 @@ func (m TuiModel) Init() tea.Cmd {
 
 // Update is where all commands and whatnot get processed
 func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
-	//if !m.formatModeEnabled {
-	//	m.formatModeEnabled = true
-	//	m.editModeEnabled = false
+	//if !m.UI.FormatModeEnabled {
+	//	m.UI.FormatModeEnabled = true
+	//	m.UI.EditModeEnabled = false
 	//	m.selectionText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed commodo, elit at scelerisque consequat, lectus ex semper turpis, a posuere mauris neque a odio. Nam at placerat elit. Suspendisse potenti. Nullam lorem felis, fringilla vitae commodo at, vestibulum quis lacus. Phasellus iaculis elementum enim, eu lobortis lacus imperdiet at. Praesent a hendrerit nisl. Mauris faucibus, mi non posuere porta, turpis risus posuere dolor, at tempor dolor sapien vitae eros. Ut non efficitur enim, eu pretium tortor. In et laoreet magna. Etiam dignissim viverra convallis. Suspendisse ac nibh velit. Nulla facilisis vestibulum nibh vitae venenatis. Vivamus ornare, justo hendrerit blandit ultrices, metus diam aliquet urna, et sollicitudin ante odio quis ex. Duis non luctus augue, ac fringilla eros.\n\nNunc at dolor arcu. Nullam quis velit id purus bibendum tincidunt bibendum vel nunc. Maecenas imperdiet aliquam mauris a tincidunt. Praesent faucibus sapien nec massa posuere, ac placerat enim viverra. Quisque a condimentum velit, id feugiat lectus. Vivamus iaculis magna ante. Nulla interdum tristique justo, ac blandit dolor rutrum vel. Maecenas id tristique leo.\n\nProin lobortis finibus nibh, vitae porttitor tortor. Duis rutrum, eros ac fringilla scelerisque, nisi velit tristique odio, facilisis fermentum quam enim et risus. In tempus ipsum a erat posuere, quis varius ex hendrerit. Donec suscipit nec nulla sed dictum. Aenean venenatis augue quam. In nunc leo, fringilla vel justo et, sodales tempor libero. Cras sit amet nulla vel elit aliquet facilisis ac nec leo. Quisque interdum, enim et porttitor condimentum, nunc erat efficitur orci, id mattis diam arcu porttitor urna. Ut consectetur mi eu urna gravida lacinia a vel diam. Sed posuere, ante ac scelerisque sollicitudin, nisl dolor mollis nulla, quis commodo massa eros ut neque. Nam tempus dui et est congue blandit.\n\nIn quis posuere diam, at efficitur orci. Nullam vulputate, tortor sed fringilla pretium, massa massa congue justo, quis consectetur justo sapien non odio. Praesent pulvinar non magna a mattis. Cras efficitur mauris eu pretium eleifend. Vestibulum fringilla scelerisque neque ac blandit. Ut sagittis congue tellus et viverra. Sed cursus augue id lobortis accumsan.\n\nNulla et justo eu ligula blandit volutpat. Sed cursus nunc elit, id consequat enim fringilla ac. Fusce sagittis fermentum magna at cursus. Donec metus est, vestibulum vel porttitor vitae, imperdiet non purus. Vestibulum aliquet scelerisque lobortis. Nullam sed dolor id libero interdum dignissim. Fusce porttitor id est in pretium. Donec non faucibus ipsum. Ut mattis orci tincidunt sapien commodo, quis euismod mi condimentum. Phasellus non eros felis. Etiam pellentesque ut massa id suscipit. Praesent viverra mauris in ultrices semper. Nam ante sem, sollicitudin nec mauris ut, euismod hendrerit justo. Curabitur placerat luctus lorem sit amet scelerisque. Suspendisse luctus tellus vitae felis fermentum luctus. Morbi dolor est, convallis ac ex sit amet, viverra dapibus ante."
 	//	m.formatInput.Model.focus = true
 	//	m.textInput.Model.focus = false
@@ -156,7 +129,7 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// when fullscreen selection viewing is in session, don't allow UI manipulation other than quit or exit
 		s := msg.String()
-		if m.renderSelection &&
+		if m.UI.RenderSelection &&
 			s != "esc" &&
 			s != "ctrl+c" &&
 			s != "q" &&
@@ -165,14 +138,14 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			s != "n" {
 			break
 		}
-		if s == "ctrl+c" || (s == "q" && (!m.editModeEnabled && !m.formatModeEnabled)) {
+		if s == "ctrl+c" || (s == "q" && (!m.UI.EditModeEnabled && !m.UI.FormatModeEnabled)) {
 			return m, tea.Quit
 		}
 
 		handleKeyboardEvents(&m, &msg)
-		if !m.editModeEnabled && m.ready {
+		if !m.UI.EditModeEnabled && m.Ready {
 			m.SetViewSlices()
-			if m.formatModeEnabled {
+			if m.UI.FormatModeEnabled {
 				moveCursorWithinBounds(&m)
 			}
 		}
@@ -183,7 +156,7 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if !m.formatModeEnabled {
+	if !m.UI.FormatModeEnabled {
 		m.viewport, _ = m.viewport.Update(message)
 	}
 
@@ -196,7 +169,7 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 
 // View is where all rendering happens
 func (m TuiModel) View() string {
-	if !m.ready || m.viewport.Width == 0 {
+	if !m.Ready || m.viewport.Width == 0 {
 		return "\n  Initializing..."
 	}
 
@@ -241,7 +214,7 @@ func (m TuiModel) View() string {
 			// schema name
 			var headerTop string
 
-			if m.editModeEnabled || m.formatModeEnabled {
+			if m.UI.EditModeEnabled || m.UI.FormatModeEnabled {
 				headerTop = m.textInput.Model.View()
 				if !m.textInput.Model.Focused() {
 					headerTop = headerStyle.Copy().Faint(true).Render(headerTop)
@@ -278,7 +251,7 @@ func (m TuiModel) View() string {
 			row int
 			col int
 		)
-		if !m.formatModeEnabled { // reason we flip is because it makes more sense to store things by column for data
+		if !m.UI.FormatModeEnabled { // reason we flip is because it makes more sense to store things by column for data
 			row = m.GetRow() + m.viewport.YOffset
 			col = m.GetColumn() + m.scrollXOffset
 		} else { // but for format mode thats just a regular row/col situation
