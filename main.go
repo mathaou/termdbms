@@ -74,7 +74,6 @@ func main() {
 		path = debugPath
 	}
 
-	t := ""
 	for i, v := range ValidThemes {
 		if theme == v {
 			SelectedTheme = i
@@ -82,7 +81,7 @@ func main() {
 		}
 	}
 
-	if t == "" {
+	if theme == "" {
 		theme = "default"
 	}
 
