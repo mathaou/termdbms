@@ -10,6 +10,8 @@ import (
 	_ "modernc.org/sqlite"
 	"os"
 	"strings"
+	"termdbms/database"
+	. "termdbms/tuiutil"
 	. "termdbms/viewer"
 )
 
@@ -101,7 +103,7 @@ func main() {
 	// make a copy of the database file, load this
 	dst, _, _ := CopyFile(path)
 	// keep a track of the original file name
-	db := GetDatabaseForFile(dst)
+	db := database.GetDatabaseForFile(dst)
 	defer func() {
 		if db == nil {
 			db.Close()
@@ -112,7 +114,7 @@ func main() {
 	m := GetNewModel(dst, db)
 	InitialModel = &m
 	InitialModel.InitialFileName = path
-	InitialModel.SetModel(c, db)
+	SetModel(InitialModel, c, db)
 
 	// creates the program
 	Program = tea.NewProgram(InitialModel,
@@ -154,5 +156,5 @@ func handleFlags() {
 		os.Exit(1)
 	}
 
-	DriverString = databaseType
+	database.DriverString = databaseType
 }

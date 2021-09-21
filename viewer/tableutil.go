@@ -1,57 +1,25 @@
 package viewer
 
 import (
-	"database/sql"
 	"github.com/charmbracelet/lipgloss"
+	"termdbms/tuiutil"
 )
 
 var maxHeaders int
 
-// GetNewModel returns a TuiModel struct with some fields set
-func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
-	m := TuiModel{
-		Table: TableState{
-			Database: &SQLite{
-				FileName: baseFileName,
-				db:       db,
-			},
-			Data: make(map[string]interface{}),
-		},
-		Format: FormatState{
-			EditSlices:     nil,
-			Text:           nil,
-			RunningOffsets: nil,
-			CursorX:        0,
-			CursorY:        0,
-		},
-		UI: UIState{
-			CanFormatScroll:   false,
-			RenderSelection:   false,
-			HelpDisplay:       false,
-			EditModeEnabled:   false,
-			FormatModeEnabled: false,
-			BorderToggle:      false,
-			CurrentTable:      0,
-			ExpandColumn:      -1,
-		},
-		Scroll: ScrollData{},
-		Data: UIData{
-			TableHeaders:      make(map[string][]string),
-			TableHeadersSlice: []string{},
-			TableSlices:       make(map[string][]interface{}),
-			TableIndexMap:     make(map[int]string),
-		},
-		TextInput: LineEdit{
-			Model:         NewModel(),
-			EnterBehavior: HeaderLineEditEnterBehavior,
-		},
-		FormatInput: LineEdit{
-			Model:         NewModel(),
-			EnterBehavior: BodyLineEditEnterBehavior,
-		},
+// AssembleTable shows either the selection text or the table
+func AssembleTable(m *TuiModel) string {
+	if m.UI.HelpDisplay {
+		return GetHelpText()
 	}
-	m.FormatInput.Model.Prompt = ""
-	return m
+	if m.UI.RenderSelection {
+		return DisplaySelection(m)
+	}
+	if m.UI.FormatModeEnabled {
+		return DisplayFormatText(m)
+	}
+
+	return DisplayTable(m)
 }
 
 // NumHeaders gets the number of columns for the current schema
@@ -81,14 +49,14 @@ func (m *TuiModel) CellWidth() int {
 func (m *TuiModel) GetBaseStyle() lipgloss.Style {
 	cw := m.CellWidth()
 	s := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(TextColor())).
+		Foreground(lipgloss.Color(tuiutil.TextColor())).
 		Width(cw).
 		Align(lipgloss.Left)
 
-	if m.UI.BorderToggle && !Ascii {
+	if m.UI.BorderToggle && !tuiutil.Ascii {
 		s = s.BorderLeft(true).
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color(BorderColor()))
+			BorderForeground(lipgloss.Color(tuiutil.BorderColor()))
 	}
 
 	return s
@@ -221,4 +189,12 @@ func (m *TuiModel) GetSelectedLineEdit() *LineEdit {
 	}
 
 	return &m.FormatInput
+}
+
+func ToggleColumn(m *TuiModel) {
+	if m.UI.ExpandColumn > -1 {
+		m.UI.ExpandColumn = -1
+	} else {
+		m.UI.ExpandColumn = m.GetColumn()
+	}
 }

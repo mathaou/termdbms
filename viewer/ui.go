@@ -7,44 +7,13 @@ import (
 	"github.com/muesli/reflow/wordwrap"
 	"strconv"
 	"strings"
+	"termdbms/tuiutil"
 	"time"
 )
 
 var (
 	Program          *tea.Program
-	Ascii            bool
 	FormatModeOffset int
-)
-
-// styling functions
-var (
-	Highlight = func() string {
-		return ThemesMap[SelectedTheme][HighlightKey]
-	} // change to whatever
-	HeaderBackground = func() string {
-		return ThemesMap[SelectedTheme][HeaderBackgroundKey]
-	}
-	HeaderBorderBackground = func() string {
-		return ThemesMap[SelectedTheme][HeaderBorderBackgroundKey]
-	}
-	HeaderForeground = func() string {
-		return ThemesMap[SelectedTheme][HeaderForegroundKey]
-	}
-	FooterForeground = func() string {
-		return ThemesMap[SelectedTheme][FooterForegroundColorKey]
-	}
-	HeaderBottom = func() string {
-		return ThemesMap[SelectedTheme][HeaderBottomColorKey]
-	}
-	HeaderTopForeground = func() string {
-		return ThemesMap[SelectedTheme][HeaderTopForegroundColorKey]
-	}
-	BorderColor = func() string {
-		return ThemesMap[SelectedTheme][BorderColorKey]
-	}
-	TextColor = func() string {
-		return ThemesMap[SelectedTheme][TextColorKey]
-	}
 )
 
 func GetOffsetForLineNumber(a int) int {
@@ -75,37 +44,6 @@ func SelectOption(m *TuiModel) {
 		}
 	} else {
 		m.UI.RenderSelection = false
-	}
-}
-
-func SwapTableValues(m *TuiModel, f, t *TableState) {
-	from := &f.Data
-	to := &t.Data
-	for k, v := range *from {
-		if copyValues, ok := v.(map[string][]interface{}); ok {
-			columnNames := m.Data.TableHeaders[k]
-			columnValues := make(map[string][]interface{})
-			// golang wizardry
-			columns := make([]interface{}, len(columnNames))
-
-			for i := range columns {
-				columns[i] = copyValues[columnNames[i]][0]
-			}
-
-			for i, colName := range columnNames {
-				columnValues[colName] = columns[i].([]interface{})
-			}
-
-			(*to)[k] = columnValues // data for schema, organized by column
-		}
-	}
-}
-
-func ToggleColumn(m *TuiModel) {
-	if m.UI.ExpandColumn > -1 {
-		m.UI.ExpandColumn = -1
-	} else {
-		m.UI.ExpandColumn = m.GetColumn()
 	}
 }
 
@@ -177,9 +115,9 @@ func DisplayTable(m *TuiModel) string {
 			s = " " + s
 			// handle highlighting
 			if c == m.GetColumn() && r == m.GetRow() {
-				if !Ascii {
-					base.Foreground(lipgloss.Color(Highlight()))
-				} else if Ascii {
+				if !tuiutil.Ascii {
+					base.Foreground(lipgloss.Color(tuiutil.Highlight()))
+				} else if tuiutil.Ascii {
 					s = "|" + s
 				}
 			}
@@ -216,7 +154,7 @@ func GetFormattedTextBuffer(m *TuiModel) []string {
 		totalOffset := Max(FormatModeOffset-xOffset, 0)
 		//wrap := wordwrap.String(v, m.Viewport.Width-totalOffset)
 
-		right := Indent(
+		right := tuiutil.Indent(
 			v,
 			fmt.Sprintf("%d%s", i, strings.Repeat(" ", totalOffset)),
 			false)

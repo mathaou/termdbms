@@ -1,4 +1,4 @@
-package viewer
+package tuiutil
 
 const (
 	HighlightKey                = "Highlight"
@@ -10,6 +10,38 @@ const (
 	HeaderTopForegroundColorKey = "HeaderTopForeground"
 	BorderColorKey              = "BorderColor"
 	TextColorKey                = "TextColor"
+)
+
+
+// styling functions
+var (
+	Highlight = func() string {
+		return ThemesMap[SelectedTheme][HighlightKey]
+	} // change to whatever
+	HeaderBackground = func() string {
+		return ThemesMap[SelectedTheme][HeaderBackgroundKey]
+	}
+	HeaderBorderBackground = func() string {
+		return ThemesMap[SelectedTheme][HeaderBorderBackgroundKey]
+	}
+	HeaderForeground = func() string {
+		return ThemesMap[SelectedTheme][HeaderForegroundKey]
+	}
+	FooterForeground = func() string {
+		return ThemesMap[SelectedTheme][FooterForegroundColorKey]
+	}
+	HeaderBottom = func() string {
+		return ThemesMap[SelectedTheme][HeaderBottomColorKey]
+	}
+	HeaderTopForeground = func() string {
+		return ThemesMap[SelectedTheme][HeaderTopForegroundColorKey]
+	}
+	BorderColor = func() string {
+		return ThemesMap[SelectedTheme][BorderColorKey]
+	}
+	TextColor = func() string {
+		return ThemesMap[SelectedTheme][TextColorKey]
+	}
 )
 
 var (

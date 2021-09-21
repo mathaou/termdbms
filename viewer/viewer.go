@@ -1,13 +1,13 @@
 package viewer
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"os"
 	"strings"
+	"termdbms/database"
+	"termdbms/tuiutil"
 )
 
 var (
@@ -84,15 +84,15 @@ func SetStyles() {
 	HeaderDividerStyle = lipgloss.NewStyle().
 		Align(lipgloss.Center)
 
-	if !Ascii {
+	if !tuiutil.Ascii {
 		HeaderStyle = HeaderStyle.
-			Foreground(lipgloss.Color(HeaderTopForeground()))
+			Foreground(lipgloss.Color(tuiutil.HeaderTopForeground()))
 
 		FooterStyle = FooterStyle.
-			Foreground(lipgloss.Color(FooterForeground()))
+			Foreground(lipgloss.Color(tuiutil.FooterForeground()))
 
 		HeaderDividerStyle = HeaderDividerStyle.
-			Foreground(lipgloss.Color(HeaderBottom()))
+			Foreground(lipgloss.Color(tuiutil.HeaderBottom()))
 	}
 }
 
@@ -186,11 +186,11 @@ func (m TuiModel) View() string {
 
 		style := m.GetBaseStyle()
 
-		if !Ascii {
+		if !tuiutil.Ascii {
 			// for column headers
-			style = style.Foreground(lipgloss.Color(HeaderForeground())).
-				BorderBackground(lipgloss.Color(HeaderBorderBackground())).
-				Background(lipgloss.Color(HeaderBackground())).
+			style = style.Foreground(lipgloss.Color(tuiutil.HeaderForeground())).
+				BorderBackground(lipgloss.Color(tuiutil.HeaderBorderBackground())).
+				Background(lipgloss.Color(tuiutil.HeaderBackground())).
 				PaddingLeft(1)
 		}
 		headers := m.Data.TableHeadersSlice
@@ -256,7 +256,7 @@ func (m TuiModel) View() string {
 		footer := fmt.Sprintf(" %d, %d ", row, col)
 		undoRedoInfo := fmt.Sprintf("undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
 		switch m.Table.Database.(type) {
-		case *SQLite:
+		case *database.SQLite:
 			break
 		default:
 			undoRedoInfo = ""
@@ -277,70 +277,4 @@ func (m TuiModel) View() string {
 	close(done) // close
 
 	return fmt.Sprintf("%s\n%s\n%s", header, content, footer) // render
-}
-
-// SetModel creates a model to be used by bubbletea using some golang wizardry
-func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) {
-	var err error
-
-	indexMap := 0
-
-	// gets all the schema names of the database
-	rows, err := db.Query(GetTableNamesQuery)
-	if err != nil {
-		fmt.Printf("%v", err)
-		os.Exit(1)
-	}
-
-	defer rows.Close()
-
-	// for each schema
-	for rows.Next() {
-		var schemaName string
-		rows.Scan(&schemaName)
-
-		// couldn't get prepared statements working and gave up because it was very simple
-		var statement strings.Builder
-		statement.WriteString("select * from ")
-		statement.WriteString(schemaName)
-
-		if c != nil {
-			c.Close()
-			c = nil
-		}
-		c, err = db.Query(statement.String())
-		if err != nil {
-			panic(err)
-		}
-
-		columnNames, _ := c.Columns()
-		columnValues := make(map[string][]interface{})
-
-		for c.Next() { // each row of the table
-			// golang wizardry
-			columns := make([]interface{}, len(columnNames))
-			columnPointers := make([]interface{}, len(columnNames))
-			// init interface array
-			for i := range columns {
-				columnPointers[i] = &columns[i]
-			}
-
-			c.Scan(columnPointers...)
-
-			for i, colName := range columnNames {
-				val := columnPointers[i].(*interface{})
-				columnValues[colName] = append(columnValues[colName], *val)
-			}
-		}
-
-		// onto the next schema
-		indexMap++
-		m.Table.Data[schemaName] = columnValues       // data for schema, organized by column
-		m.Data.TableHeaders[schemaName] = columnNames // headers for the schema, for later reference
-		// mapping between schema and an int ( since maps aren't deterministic), for later reference
-		m.Data.TableIndexMap[indexMap] = schemaName
-	}
-
-	// set the first table to be initial view
-	m.UI.CurrentTable = 1
 }

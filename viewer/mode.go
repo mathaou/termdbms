@@ -25,8 +25,8 @@ func PrepareFormatMode(m *TuiModel) {
 	m.UI.EditModeEnabled = false
 	m.TextInput.Model.SetValue("")
 	m.FormatInput.Model.SetValue("")
-	m.FormatInput.Model.focus = true
-	m.TextInput.Model.focus = false
+	m.FormatInput.Model.Focus = true
+	m.TextInput.Model.Focus = false
 	m.TextInput.Model.Blur()
 }
 
@@ -76,21 +76,21 @@ func HandleEditInput(m *TuiModel, str, val string) (ret bool) {
 func HandleEditMovement(m *TuiModel, str, val string) (ret bool) {
 	selectedInput := &m.TextInput.Model
 	if str == "home" {
-		selectedInput.setCursor(0)
+		selectedInput.SetCursor(0)
 
 		ret = true
 	} else if str == "end" {
 		if len(val) > 0 {
-			selectedInput.setCursor(len(val) - 1)
+			selectedInput.SetCursor(len(val) - 1)
 		}
 
 		ret = true
 	} else if str == "left" {
 		cursorPosition := selectedInput.Cursor()
 
-		if cursorPosition == selectedInput.offset && cursorPosition != 0 {
-			selectedInput.offset--
-			selectedInput.offsetRight--
+		if cursorPosition == selectedInput.Offset && cursorPosition != 0 {
+			selectedInput.Offset--
+			selectedInput.OffsetRight--
 		}
 
 		if cursorPosition != 0 {
@@ -101,12 +101,12 @@ func HandleEditMovement(m *TuiModel, str, val string) (ret bool) {
 	} else if str == "right" {
 		cursorPosition := selectedInput.Cursor()
 
-		if cursorPosition == selectedInput.offsetRight {
-			selectedInput.offset++
-			selectedInput.offsetRight++
+		if cursorPosition == selectedInput.OffsetRight {
+			selectedInput.Offset++
+			selectedInput.OffsetRight++
 		}
 
-		selectedInput.setCursor(cursorPosition + 1)
+		selectedInput.SetCursor(cursorPosition + 1)
 
 		ret = true
 	}
@@ -428,5 +428,5 @@ func HandleEditMode(m *TuiModel, str string) {
 	if prePos != 0 {
 		prePos = selectedInput.Cursor()
 	}
-	selectedInput.setCursor(prePos + 1)
+	selectedInput.SetCursor(prePos + 1)
 }

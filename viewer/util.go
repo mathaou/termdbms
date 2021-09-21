@@ -53,17 +53,14 @@ func GetInterfaceFromString(str string, original *interface{}) interface{} {
 	case bool:
 		bVal, _ := strconv.ParseBool(str)
 		return bVal
-		break
 	case int64:
 	case int32:
 		iVal, _ := strconv.ParseInt(str, 10, 64)
 		return iVal
-		break
 	case float64:
 	case float32:
 		fVal, _ := strconv.ParseFloat(str, 64)
 		return fVal
-		break
 	case time.Time:
 		t := (*original).(time.Time)
 		return t // TODO figure out how to handle things like time and date
@@ -142,52 +139,6 @@ func SplitLines(s string) []string {
 		lines = append(lines, sc.Text())
 	}
 	return lines
-}
-
-func (m *TuiModel) CopyMap() (to map[string]interface{}) {
-	from := m.Table.Data
-	to = map[string]interface{}{}
-
-	for k, v := range from {
-		if copyValues, ok := v.(map[string][]interface{}); ok {
-			columnNames := m.Data.TableHeaders[k]
-			columnValues := make(map[string][]interface{})
-			// golang wizardry
-			columns := make([]interface{}, len(columnNames))
-
-			for i := range columns {
-				columns[i] = copyValues[columnNames[i]]
-			}
-
-			for i, colName := range columnNames {
-				val := columns[i].([]interface{})
-				buffer := make([]interface{}, len(val))
-				for k := range val {
-					buffer[k] = val[k]
-				}
-				columnValues[colName] = append(columnValues[colName], buffer)
-			}
-
-			to[k] = columnValues // data for schema, organized by column
-		}
-	}
-
-	return to
-}
-
-// AssembleTable shows either the selection text or the table
-func AssembleTable(m *TuiModel) string {
-	if m.UI.HelpDisplay {
-		return GetHelpText()
-	}
-	if m.UI.RenderSelection {
-		return DisplaySelection(m)
-	}
-	if m.UI.FormatModeEnabled {
-		return DisplayFormatText(m)
-	}
-
-	return DisplayTable(m)
 }
 
 func GetScrollDownMaximumForSelection(m *TuiModel) int {

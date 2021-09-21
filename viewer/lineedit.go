@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	database "termdbms/database"
+	"termdbms/tuiutil"
 )
 
-type EnterFunction func(m *TuiModel, selectedInput *TextInputModel, input string)
+type EnterFunction func(m *TuiModel, selectedInput *tuiutil.TextInputModel, input string)
 
 type LineEdit struct {
-	Model         TextInputModel
+	Model         tuiutil.TextInputModel
 	EnterBehavior EnterFunction
 	Original      *interface{}
 }
@@ -29,11 +31,11 @@ func ExitToDefaultView(m *TuiModel) {
 	m.Viewport.YOffset = 0
 }
 
-func BodyLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, input string) {
+func BodyLineEditEnterBehavior(m *TuiModel, selectedInput *tuiutil.TextInputModel, input string) {
 	// UNUSED, newlines handled manually
 }
 
-func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i string) {
+func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *tuiutil.TextInputModel, i string) {
 	var (
 		original *interface{}
 		input    string
@@ -62,7 +64,7 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 			m.FormatInput.Original = original
 			m.Format.Text = GetFormattedTextBuffer(m)
 			m.SetViewSlices()
-			m.FormatInput.Model.setCursor(0)
+			m.FormatInput.Model.SetCursor(0)
 			return
 		} else if input == ":new" {
 			PrepareFormatMode(m)
@@ -70,7 +72,7 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 			m.FormatInput.Original = original
 			m.Format.Text = GetFormattedTextBuffer(m)
 			m.SetViewSlices()
-			m.FormatInput.Model.setCursor(0)
+			m.FormatInput.Model.SetCursor(0)
 			return
 		}
 	} else {
@@ -89,7 +91,7 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 
 	if i == ":s" { // saves copy, default filename + :s _____ will save with that filename in cwd
 		ExitToDefaultView(m)
-		newFileName, err := m.Serialize()
+		newFileName, err := Serialize(m)
 		if err != nil {
 			m.DisplayMessage(fmt.Sprintf("%v", err))
 		} else {
@@ -99,7 +101,7 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 		return
 	} else if i == ":s!" { // overwrites original - should add confirmation dialog!
 		ExitToDefaultView(m)
-		err := m.SerializeOverwrite()
+		err := SerializeOverwrite(m)
 		if err != nil {
 			m.DisplayMessage(fmt.Sprintf("%v", err))
 		} else {
@@ -121,13 +123,13 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 	}
 
 	switch m.Table.Database.(type) {
-	case *SQLite:
+	case *database.SQLite:
 		deepCopy := m.CopyMap()
 		// THE GLOBALIST TAKEOVER
 		deepState := TableState{
-			Database: &SQLite{
+			Database: &database.SQLite{
 				FileName: m.Table.Database.GetFileName(),
-				db:       nil,
+				Database: nil,
 			},
 			Data: deepCopy,
 		}
@@ -147,7 +149,7 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *TextInputModel, i s
 		input = strings.ReplaceAll(input, "\r", "")
 	}
 
-	m.ProcessSqlQueryForDatabaseType(&Update{
+	ProcessSqlQueryForDatabaseType(m, &database.Update{
 		Update: GetInterfaceFromString(input, original),
 	})
 

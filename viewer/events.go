@@ -5,6 +5,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"strings"
+	"termdbms/database"
+	"termdbms/tuiutil"
 	"time"
 )
 
@@ -55,7 +57,7 @@ func HandleWindowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 		m.TextInput.Model.CharLimit = -1
 		m.TextInput.Model.Width = MaxInputLength - lipgloss.Width(m.TextInput.Model.Prompt)
 		m.TextInput.Model.BlinkSpeed = time.Second
-		m.TextInput.Model.SetCursorMode(CursorBlink)
+		m.TextInput.Model.SetCursorMode(tuiutil.CursorBlink)
 
 		m.TableStyle = m.GetBaseStyle()
 		m.SetViewSlices()
@@ -86,10 +88,10 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	} else if m.UI.FormatModeEnabled {
 		if str == "esc" { // cycle focus
 			if m.TextInput.Model.Focused() {
-				cmd = m.FormatInput.Model.Focus()
+				cmd = m.FormatInput.Model.FocusCommand()
 				m.TextInput.Model.Blur()
 			} else {
-				cmd = m.TextInput.Model.Focus()
+				cmd = m.TextInput.Model.FocusCommand()
 				m.FormatInput.Model.Blur()
 			}
 			return cmd
@@ -107,7 +109,7 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	// GLOBAL COMMANDS
 	switch str {
 	case "t":
-		SelectedTheme = (SelectedTheme + 1) % len(ValidThemes)
+		tuiutil.SelectedTheme = (tuiutil.SelectedTheme + 1) % len(tuiutil.ValidThemes)
 		SetStyles()
 		break
 	case "pgdown":
@@ -126,9 +128,9 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 			deepCopy := m.CopyMap()
 			// THE GLOBALIST TAKEOVER
 			deepState := TableState{
-				Database: &SQLite{
+				Database: &database.SQLite{
 					FileName: m.Table.Database.GetFileName(),
-					db:       nil,
+					Database:       nil,
 				}, // placeholder for now while testing database copy
 				Data: deepCopy,
 			}
@@ -148,9 +150,9 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 			deepCopy := m.CopyMap()
 			// THE GLOBALIST TAKEOVER
 			deepState := TableState{
-				Database: &SQLite{
+				Database: &database.SQLite{
 					FileName: m.Table.Database.GetFileName(),
-					db:       nil,
+					Database:       nil,
 				}, // placeholder for now while testing database copy
 				Data: deepCopy,
 			}
@@ -177,7 +179,7 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		if lipgloss.Width(str+m.TextInput.Model.Prompt) > m.Viewport.Width ||
 			strings.Count(str, "\n") > 0 { // enter format view
 			PrepareFormatMode(m)
-			cmd = m.FormatInput.Model.Focus() // get focus
+			cmd = m.FormatInput.Model.FocusCommand()       // get focus
 			m.Scroll.PreScrollYOffset = m.Viewport.YOffset // store scrolling so state can be restored on exit
 			m.Scroll.PreScrollYPosition = m.MouseData.Y
 			if conv, err := FormatJson(str); err == nil { // if json prettify
@@ -188,11 +190,11 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 			m.FormatInput.Original = raw // pointer to original data
 			m.Format.Text = GetFormattedTextBuffer(m)
 			m.SetViewSlices()
-			m.FormatInput.Model.setCursor(0)
+			m.FormatInput.Model.SetCursor(0)
 		} else { // otherwise, edit normally up top
 			m.TextInput.Model.SetValue(str)
-			m.FormatInput.Model.focus = false
-			m.TextInput.Model.focus = true
+			m.FormatInput.Model.Focus = false
+			m.TextInput.Model.Focus = true
 		}
 		break
 	case "p":
@@ -252,7 +254,7 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		if m.MouseData.Y-HeaderHeight+m.Viewport.YOffset < max-1 {
 			m.MouseData.Y++
 			ceiling := m.Viewport.Height+HeaderHeight-1
-			clamp(m.MouseData.Y, m.MouseData.Y + 1, ceiling)
+			tuiutil.Clamp(m.MouseData.Y, m.MouseData.Y + 1, ceiling)
 			if m.MouseData.Y > ceiling {
 				ScrollDown(m)
 			}
@@ -309,7 +311,7 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		m.UI.RenderSelection = false
 		m.UI.HelpDisplay = false
 		m.Data.EditTextBuffer = ""
-		cmd = m.TextInput.Model.Focus()
+		cmd = m.TextInput.Model.FocusCommand()
 		m.TextInput.Model.SetValue("")
 		m.UI.ExpandColumn = -1
 		m.MouseData.Y = m.Scroll.PreScrollYPosition

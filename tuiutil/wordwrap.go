@@ -1,4 +1,4 @@
-package viewer
+package tuiutil
 
 import (
 	"strings"

@@ -1,16 +1,16 @@
-package viewer
+package tuiutil
 
 import (
-"context"
-"strings"
-"sync"
-"time"
-"unicode"
+	"context"
+	"strings"
+	"sync"
+	"time"
+	"unicode"
 
-"github.com/atotto/clipboard"
-tea "github.com/charmbracelet/bubbletea"
-"github.com/charmbracelet/lipgloss"
-rw "github.com/mattn/go-runewidth"
+	"github.com/atotto/clipboard"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	rw "github.com/mattn/go-runewidth"
 )
 
 const DefaultBlinkSpeed = time.Millisecond * 530
@@ -18,6 +18,7 @@ const DefaultBlinkSpeed = time.Millisecond * 530
 // Internal ID management for text inputs. Necessary for blink integrity when
 // multiple text inputs are involved.
 var (
+	Ascii  bool
 	lastID int
 	idMtx  sync.Mutex
 )
@@ -130,9 +131,9 @@ type TextInputModel struct {
 	// Underlying text value.
 	value []rune
 
-	// focus indicates whether user input focus should be on this input
+	// Focus indicates whether user input Focus should be on this input
 	// component. When false, ignore keyboard input and hide the cursor.
-	focus bool
+	Focus bool
 
 	// Cursor blink state.
 	blink bool
@@ -142,8 +143,8 @@ type TextInputModel struct {
 
 	// Used to emulate a Viewport when width is set and the content is
 	// overflowing.
-	offset      int
-	offsetRight int
+	Offset      int
+	OffsetRight int
 
 	// Used to manage cursor blink
 	blinkCtx *blinkCtx
@@ -163,7 +164,7 @@ func NewModel() TextInputModel {
 
 		id:         nextID(),
 		value:      nil,
-		focus:      false,
+		Focus:      false,
 		blink:      true,
 		pos:        0,
 		cursorMode: CursorBlink,
@@ -214,7 +215,7 @@ func (m *TextInputModel) SetCursor(pos int) {
 // the cursor blink should be reset. If the position is out of bounds the
 // cursor will be moved to the start or end accordingly.
 func (m *TextInputModel) setCursor(pos int) bool {
-	m.pos = clamp(pos, 0, len(m.value))
+	m.pos = Clamp(pos, 0, len(m.value))
 	m.handleOverflow()
 
 	// Show the cursor unless it's been explicitly hidden
@@ -251,7 +252,7 @@ func (m TextInputModel) CursorMode() CursorMode {
 // For available cursor modes, see type CursorMode.
 func (m *TextInputModel) SetCursorMode(mode CursorMode) tea.Cmd {
 	m.cursorMode = mode
-	m.blink = m.cursorMode == CursorHide || !m.focus
+	m.blink = m.cursorMode == CursorHide || !m.Focus
 	if mode == CursorBlink {
 		return Blink
 	}
@@ -264,27 +265,27 @@ func (m *TextInputModel) cursorEnd() bool {
 	return m.setCursor(len(m.value))
 }
 
-// Focused returns the focus state on the model.
+// Focused returns the Focus state on the model.
 func (m TextInputModel) Focused() bool {
-	return m.focus
+	return m.Focus
 }
 
-// Focus sets the focus state on the model. When the model is in focus it can
+// FocusCommand sets the Focus state on the model. When the model is in Focus it can
 // receive keyboard input and the cursor will be hidden.
-func (m *TextInputModel) Focus() tea.Cmd {
-	m.focus = true
+func (m *TextInputModel) FocusCommand() tea.Cmd {
+	m.Focus = true
 	m.blink = m.cursorMode == CursorHide // show the cursor unless we've explicitly hidden it
 
-	if m.cursorMode == CursorBlink && m.focus {
+	if m.cursorMode == CursorBlink && m.Focus {
 		return m.blinkCmd()
 	}
 	return nil
 }
 
-// Blur removes the focus state on the model.  When the model is blurred it can
+// Blur removes the Focus state on the model.  When the model is blurred it can
 // not receive keyboard input and the cursor will be hidden.
 func (m *TextInputModel) Blur() {
-	m.focus = false
+	m.Focus = false
 	m.blink = true
 }
 
@@ -345,20 +346,20 @@ func (m *TextInputModel) handlePaste(v string) bool {
 // as a horizontally scrolling Viewport.
 func (m *TextInputModel) handleOverflow() {
 	if m.Width <= 0 || rw.StringWidth(string(m.value)) <= m.Width {
-		m.offset = 0
-		m.offsetRight = len(m.value)
+		m.Offset = 0
+		m.OffsetRight = len(m.value)
 		return
 	}
 
-	// Correct right offset if we've deleted characters
-	m.offsetRight = min(m.offsetRight, len(m.value))
+	// Correct right Offset if we've deleted characters
+	m.OffsetRight = min(m.OffsetRight, len(m.value))
 
-	if m.pos < m.offset {
-		m.offset = m.pos
+	if m.pos < m.Offset {
+		m.Offset = m.pos
 
 		w := 0
 		i := 0
-		runes := m.value[m.offset:]
+		runes := m.value[m.Offset:]
 
 		for i < len(runes) && w <= m.Width {
 			w += rw.RuneWidth(runes[i])
@@ -367,12 +368,12 @@ func (m *TextInputModel) handleOverflow() {
 			}
 		}
 
-		m.offsetRight = m.offset + i
-	} else if m.pos >= m.offsetRight {
-		m.offsetRight = m.pos
+		m.OffsetRight = m.Offset + i
+	} else if m.pos >= m.OffsetRight {
+		m.OffsetRight = m.pos
 
 		w := 0
-		runes := m.value[:m.offsetRight]
+		runes := m.value[:m.OffsetRight]
 		i := len(runes) - 1
 
 		for i > 0 && w < m.Width {
@@ -382,7 +383,7 @@ func (m *TextInputModel) handleOverflow() {
 			}
 		}
 
-		m.offset = m.offsetRight - (len(runes) - 1 - i)
+		m.Offset = m.OffsetRight - (len(runes) - 1 - i)
 	}
 }
 
@@ -390,7 +391,7 @@ func (m *TextInputModel) handleOverflow() {
 // not the cursor blink should be reset.
 func (m *TextInputModel) deleteBeforeCursor() bool {
 	m.value = m.value[m.pos:]
-	m.offset = 0
+	m.Offset = 0
 	return m.setCursor(0)
 }
 
@@ -561,7 +562,7 @@ func (m TextInputModel) echoTransform(v string) string {
 
 // Update is the Bubble Tea update loop.
 func (m TextInputModel) Update(msg tea.Msg) (TextInputModel, tea.Cmd) {
-	if !m.focus {
+	if !m.Focus {
 		m.blink = true
 		return m, nil
 	}
@@ -640,7 +641,7 @@ func (m TextInputModel) Update(msg tea.Msg) (TextInputModel, tea.Cmd) {
 	case initialBlinkMsg:
 		// We accept all initialBlinkMsgs genrated by the Blink command.
 
-		if m.cursorMode != CursorBlink || !m.focus {
+		if m.cursorMode != CursorBlink || !m.Focus {
 			return m, nil
 		}
 
@@ -652,7 +653,7 @@ func (m TextInputModel) Update(msg tea.Msg) (TextInputModel, tea.Cmd) {
 		// only exactly when it should.
 
 		// Is this model blinkable?
-		if m.cursorMode != CursorBlink || !m.focus {
+		if m.cursorMode != CursorBlink || !m.Focus {
 			return m, nil
 		}
 
@@ -696,8 +697,8 @@ func (m TextInputModel) View() string {
 
 	styleText := m.TextStyle.Inline(true).Render
 
-	value := m.value[m.offset:m.offsetRight]
-	pos := max(0, m.pos-m.offset)
+	value := m.value[m.Offset:m.OffsetRight]
+	pos := max(0, m.pos-m.Offset)
 	v := styleText(m.echoTransform(string(value[:pos])))
 
 	// TODO ascii terminal styling
@@ -798,7 +799,7 @@ func Paste() tea.Msg {
 	return pasteMsg(str)
 }
 
-func clamp(v, low, high int) int {
+func Clamp(v, low, high int) int {
 	return min(high, max(low, v))
 }
 
@@ -815,4 +816,3 @@ func max(a, b int) int {
 	}
 	return b
 }
-

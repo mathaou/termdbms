@@ -1,4 +1,4 @@
-package viewer
+package database
 
 import (
 	"database/sql"
@@ -8,8 +8,8 @@ import (
 )
 
 type SQLite struct {
-	FileName          string
-	db *sql.DB
+	FileName string
+	Database *sql.DB
 }
 
 func (db *SQLite) Update(q *Update) {
@@ -43,18 +43,18 @@ func (db *SQLite) GetFileName() string {
 }
 
 func (db *SQLite) GetDatabaseReference() *sql.DB {
-	return db.db
+	return db.Database
 }
 
 func (db *SQLite) CloseDatabaseReference() {
 	db.GetDatabaseReference().Close()
-	db.db = nil
+	db.Database = nil
 }
 
 func (db *SQLite) SetDatabaseReference(dbPath string) {
 	database := GetDatabaseForFile(dbPath)
 	db.FileName = dbPath
-	db.db = database
+	db.Database = database
 }
 
 func (db SQLite) GetPlaceholderForDatabaseType() string {
@@ -63,9 +63,9 @@ func (db SQLite) GetPlaceholderForDatabaseType() string {
 
 func (db *SQLite) GenerateQuery(u *Update) (string, []string) {
 	var (
-		query string
+		query         string
 		querySkeleton string
-		valueOrder []string
+		valueOrder    []string
 	)
 
 	placeholder := db.GetPlaceholderForDatabaseType()
