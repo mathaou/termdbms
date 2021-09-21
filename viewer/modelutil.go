@@ -87,13 +87,13 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 }
 
 // SetModel creates a model to be used by bubbletea using some golang wizardry
-func SetModel(m *TuiModel, c *sql.Rows, db *sql.DB) {
+func SetModel(m *TuiModel, c *sql.Rows, db *sql.DB, query string) {
 	var err error
 
 	indexMap := 0
 
 	// gets all the schema names of the database
-	rows, err := db.Query(GetTableNamesQuery)
+	rows, err := db.Query(query)
 	if err != nil {
 		fmt.Printf("%v", err)
 		os.Exit(1)

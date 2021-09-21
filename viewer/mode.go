@@ -267,7 +267,7 @@ func HandleFormatInput(m *TuiModel, str string) bool {
 		input := m.Format.EditSlices[m.Format.CursorY]
 		inputLen := len(*input)
 		runes := []rune(*input)
-		if m.Format.CursorX > 0 {
+		if m.Format.CursorX > 0 { // cursor in middle of line
 			if cursor == inputLen && inputLen > 0 {
 				*input = (*input)[0 : inputLen-1]
 			} else if cursor > 0 {
@@ -279,7 +279,7 @@ func HandleFormatInput(m *TuiModel, str string) bool {
 			}
 
 			return false
-		} else if m.Format.CursorY > 0 && m.Format.CursorX == 0 {
+		} else if m.Format.CursorY > 0 && m.Format.CursorX == 0 { // beginning of line
 			yOffset := Max(m.Viewport.YOffset, 0)
 			cursor := m.Format.RunningOffsets[m.Format.CursorY+yOffset] + m.Format.CursorX
 			runes := []rune(m.Data.EditTextBuffer)

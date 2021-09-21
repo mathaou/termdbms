@@ -27,6 +27,7 @@ type Database interface {
 	GenerateQuery(u *Update) (string, []string)
 	GetPlaceholderForDatabaseType() string
 	GetFileName() string
+	GetTableNamesQuery() string
 	GetDatabaseReference() *sql.DB
 	CloseDatabaseReference()
 	SetDatabaseReference(dbPath string)

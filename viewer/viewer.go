@@ -39,6 +39,7 @@ type UIState struct {
 	EditModeEnabled   bool // edit mode
 	FormatModeEnabled bool
 	BorderToggle      bool
+	SQLEdit           bool
 	ExpandColumn      int
 	CurrentTable      int
 }

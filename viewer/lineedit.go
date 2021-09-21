@@ -18,6 +18,7 @@ type LineEdit struct {
 func ExitToDefaultView(m *TuiModel) {
 	m.UI.EditModeEnabled = false
 	m.UI.FormatModeEnabled = false
+	m.UI.SQLEdit = false
 	m.UI.HelpDisplay = false
 	m.UI.CanFormatScroll = false
 	m.Format.CursorY = 0
@@ -28,6 +29,16 @@ func ExitToDefaultView(m *TuiModel) {
 	m.FormatInput.Model.Reset()
 	m.TextInput.Model.Reset()
 	m.Viewport.YOffset = 0
+}
+
+func CreateEmptyBuffer(m *TuiModel, original *interface{}) {
+	PrepareFormatMode(m)
+	m.Data.EditTextBuffer = "\n"
+	m.FormatInput.Original = original
+	m.Format.Text = GetFormattedTextBuffer(m)
+	m.SetViewSlices()
+	m.FormatInput.Model.SetCursor(0)
+	return
 }
 
 func EditEnter(m *TuiModel) {
@@ -64,21 +75,25 @@ func EditEnter(m *TuiModel) {
 			m.FormatInput.Model.SetCursor(0)
 			return
 		} else if input == ":new" {
-			PrepareFormatMode(m)
-			m.Data.EditTextBuffer = "\n"
-			m.FormatInput.Original = original
-			m.Format.Text = GetFormattedTextBuffer(m)
-			m.SetViewSlices()
-			m.FormatInput.Model.SetCursor(0)
+			CreateEmptyBuffer(m, original)
+			return
+		} else if input == ":sql" {
+			CreateEmptyBuffer(m, original)
+			m.UI.SQLEdit = true
 			return
 		}
 	} else {
 		input = m.Data.EditTextBuffer
 		original = m.FormatInput.Original
-		if !(i == ":w" || i == ":wq" || i == ":s" || i == ":s!") {
+		if !(i == ":w" || i == ":wq" || i == ":s" || i == ":s!") ||
+			(m.UI.SQLEdit && !(i == ":exec")) {
 			m.TextInput.Model.SetValue("")
 			return
 		}
+	}
+
+	if m.UI.SQLEdit {
+		// TODO pick up sql edit here
 	}
 
 	if *original == input {

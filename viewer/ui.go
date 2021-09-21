@@ -200,7 +200,13 @@ func DisplayFormatText(m *TuiModel) string {
 	*line += " " // space at the end
 
 	highlight := string((*line)[x])
-	newY += lipgloss.NewStyle().Background(lipgloss.Color("#ffffff")).Render(highlight)
+	if tuiutil.Ascii {
+		highlight = "|" + highlight
+		newY += highlight
+	} else {
+		newY += lipgloss.NewStyle().Background(lipgloss.Color("#ffffff")).Render(highlight)
+	}
+
 	newY += (*line)[x+1:]
 	*line = newY
 

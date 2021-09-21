@@ -10,10 +10,6 @@ import (
 	"time"
 )
 
-const (
-	GetTableNamesQuery = "SELECT name FROM sqlite_master WHERE type='table'"
-)
-
 // HandleMouseEvents does that
 func HandleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
 	switch msg.Type {
