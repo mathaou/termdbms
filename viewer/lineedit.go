@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	database "termdbms/database"
+	"termdbms/database"
 	"termdbms/tuiutil"
 )
 
@@ -12,7 +12,6 @@ type EnterFunction func(m *TuiModel, selectedInput *tuiutil.TextInputModel, inpu
 
 type LineEdit struct {
 	Model         tuiutil.TextInputModel
-	EnterBehavior EnterFunction
 	Original      *interface{}
 }
 
@@ -31,11 +30,9 @@ func ExitToDefaultView(m *TuiModel) {
 	m.Viewport.YOffset = 0
 }
 
-func BodyLineEditEnterBehavior(m *TuiModel, selectedInput *tuiutil.TextInputModel, input string) {
-	// UNUSED, newlines handled manually
-}
-
-func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *tuiutil.TextInputModel, i string) {
+func EditEnter(m *TuiModel) {
+	selectedInput := &m.TextInput.Model
+	i := selectedInput.Value()
 	var (
 		original *interface{}
 		input    string

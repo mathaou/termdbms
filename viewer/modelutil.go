@@ -77,11 +77,9 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 		},
 		TextInput: LineEdit{
 			Model:         tuiutil.NewModel(),
-			EnterBehavior: HeaderLineEditEnterBehavior,
 		},
 		FormatInput: LineEdit{
 			Model:         tuiutil.NewModel(),
-			EnterBehavior: BodyLineEditEnterBehavior,
 		},
 	}
 	m.FormatInput.Model.Prompt = ""

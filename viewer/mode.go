@@ -66,7 +66,7 @@ func HandleEditInput(m *TuiModel, str, val string) (ret bool) {
 
 		ret = true
 	} else if str == "enter" { // writes your selection
-		m.TextInput.EnterBehavior(m, selectedInput, input)
+		EditEnter(m)
 		ret = true
 	}
 
