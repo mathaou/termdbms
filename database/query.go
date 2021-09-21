@@ -22,6 +22,16 @@ type Query interface {
 	SetValues(map[string]interface{})
 }
 
+type Database interface {
+	Update(q *Update)
+	GenerateQuery(u *Update) (string, []string)
+	GetPlaceholderForDatabaseType() string
+	GetFileName() string
+	GetDatabaseReference() *sql.DB
+	CloseDatabaseReference()
+	SetDatabaseReference(dbPath string)
+}
+
 type Update struct {
 	v    map[string]interface{} // these are anchors to ensure the right row/col gets updated
 	Column    string                 // this is the header
@@ -50,4 +60,15 @@ func GetDatabaseForFile(database string) *sql.DB {
 	}
 	Databases[database] = db
 	return db
+}
+
+func ProcessSqlQueryForDatabaseType(q Query, rowData map[string]interface{}, schemaName, columnName string, db *Database) {
+	switch conv := q.(type) {
+	case *Update:
+		conv.SetValues(rowData)
+		conv.TableName = schemaName
+		conv.Column = columnName
+		(*db).Update(conv)
+		break
+	}
 }

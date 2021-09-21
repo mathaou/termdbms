@@ -149,9 +149,9 @@ func HeaderLineEditEnterBehavior(m *TuiModel, selectedInput *tuiutil.TextInputMo
 		input = strings.ReplaceAll(input, "\r", "")
 	}
 
-	ProcessSqlQueryForDatabaseType(m, &database.Update{
+	database.ProcessSqlQueryForDatabaseType(&database.Update{
 		Update: GetInterfaceFromString(input, original),
-	})
+	}, m.GetRowData(), m.GetSchemaName(), m.GetSelectedColumnName(), &m.Table.Database)
 
 	m.UI.EditModeEnabled = false
 	m.Data.EditTextBuffer = ""

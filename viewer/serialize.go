@@ -11,7 +11,6 @@ import (
 	"termdbms/database"
 )
 
-
 var (
 	serializationErrorString = fmt.Sprintf("Database driver %s does not support serialization.", database.DriverString)
 )

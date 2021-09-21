@@ -28,7 +28,7 @@ type ScrollData struct {
 
 // TableState holds everything needed to save/serialize state
 type TableState struct {
-	Database Database
+	Database database.Database
 	Data     map[string]interface{}
 }
 
