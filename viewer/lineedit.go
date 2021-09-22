@@ -11,8 +11,8 @@ import (
 type EnterFunction func(m *TuiModel, selectedInput *tuiutil.TextInputModel, input string)
 
 type LineEdit struct {
-	Model         tuiutil.TextInputModel
-	Original      *interface{}
+	Model    tuiutil.TextInputModel
+	Original *interface{}
 }
 
 func ExitToDefaultView(m *TuiModel) {
@@ -53,7 +53,7 @@ func EditEnter(m *TuiModel) {
 		ExitToDefaultView(m)
 		return
 	}
-	if !m.UI.FormatModeEnabled {
+	if !m.UI.FormatModeEnabled && !m.UI.SQLEdit {
 		input = i
 		raw, _, _ := m.GetSelectedOption()
 		original = raw
@@ -85,15 +85,12 @@ func EditEnter(m *TuiModel) {
 	} else {
 		input = m.Data.EditTextBuffer
 		original = m.FormatInput.Original
-		if !(i == ":w" || i == ":wq" || i == ":s" || i == ":s!") ||
+		if (m.UI.FormatModeEnabled &&
+			!(i == ":w" || i == ":wq" || i == ":s" || i == ":s!")) &&
 			(m.UI.SQLEdit && !(i == ":exec")) {
 			m.TextInput.Model.SetValue("")
 			return
 		}
-	}
-
-	if m.UI.SQLEdit {
-		// TODO pick up sql edit here
 	}
 
 	if *original == input {
@@ -161,9 +158,37 @@ func EditEnter(m *TuiModel) {
 		input = strings.ReplaceAll(input, "\r", "")
 	}
 
-	database.ProcessSqlQueryForDatabaseType(&database.Update{
-		Update: GetInterfaceFromString(input, original),
-	}, m.GetRowData(), m.GetSchemaName(), m.GetSelectedColumnName(), &m.Table.Database)
+	if m.UI.SQLEdit { // if it gets here an its SQLEdit, then :exec was the command
+		c, err := m.Table.Database.GetDatabaseReference().Query(input)
+		defer func() {
+			if c != nil {
+				c.Close()
+			}
+		}()
+		if err != nil {
+			ExitToDefaultView(m)
+			m.DisplayMessage(fmt.Sprintf("%v", err))
+			return
+		}
+
+		i := 0
+
+		m.Table.Data = make(map[string]interface{})
+		m.Data.TableHeaders = make(map[string][]string)
+		m.Data.TableIndexMap = make(map[int]string)
+		PopulateDataForResult(m, c, &i, "results")
+		ExitToDefaultView(m)
+		m.UI.EditModeEnabled = false
+		m.Data.EditTextBuffer = ""
+		m.FormatInput.Model.SetValue("")
+		// TODO
+		// best way to do this would be to have undo jsut re query the db with the get all tables string at undo, so you couldn't query a query
+		return
+	} else {
+		database.ProcessSqlQueryForDatabaseType(&database.Update{
+			Update: GetInterfaceFromString(input, original),
+		}, m.GetRowData(), m.GetSchemaName(), m.GetSelectedColumnName(), &m.Table.Database)
+	}
 
 	m.UI.EditModeEnabled = false
 	m.Data.EditTextBuffer = ""

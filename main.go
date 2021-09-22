@@ -114,7 +114,11 @@ func main() {
 	m := GetNewModel(dst, db)
 	InitialModel = &m
 	InitialModel.InitialFileName = path
-	SetModel(InitialModel, c, db, m.Table.Database.GetTableNamesQuery())
+	err := SetModel(InitialModel, c, db)
+	if err != nil {
+		fmt.Printf("%v", err)
+		os.Exit(1)
+	}
 
 	// creates the program
 	Program = tea.NewProgram(InitialModel,

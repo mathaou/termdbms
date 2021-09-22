@@ -2,8 +2,6 @@ package viewer
 
 import (
 	"database/sql"
-	"fmt"
-	"os"
 	"strings"
 	"termdbms/database"
 	"termdbms/tuiutil"
@@ -40,7 +38,6 @@ func (m *TuiModel) CopyMap() (to map[string]interface{}) {
 	return to
 }
 
-
 // GetNewModel returns a TuiModel struct with some fields set
 func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 	m := TuiModel{
@@ -76,10 +73,10 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 			TableIndexMap:     make(map[int]string),
 		},
 		TextInput: LineEdit{
-			Model:         tuiutil.NewModel(),
+			Model: tuiutil.NewModel(),
 		},
 		FormatInput: LineEdit{
-			Model:         tuiutil.NewModel(),
+			Model: tuiutil.NewModel(),
 		},
 	}
 	m.FormatInput.Model.Prompt = ""
@@ -87,16 +84,15 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 }
 
 // SetModel creates a model to be used by bubbletea using some golang wizardry
-func SetModel(m *TuiModel, c *sql.Rows, db *sql.DB, query string) {
+func SetModel(m *TuiModel, c *sql.Rows, db *sql.DB) error {
 	var err error
 
 	indexMap := 0
 
 	// gets all the schema names of the database
-	rows, err := db.Query(query)
+	rows, err := db.Query(m.Table.Database.GetTableNamesQuery())
 	if err != nil {
-		fmt.Printf("%v", err)
-		os.Exit(1)
+		return err
 	}
 
 	defer rows.Close()
@@ -120,38 +116,43 @@ func SetModel(m *TuiModel, c *sql.Rows, db *sql.DB, query string) {
 			panic(err)
 		}
 
-		columnNames, _ := c.Columns()
-		columnValues := make(map[string][]interface{})
-
-		for c.Next() { // each row of the table
-			// golang wizardry
-			columns := make([]interface{}, len(columnNames))
-			columnPointers := make([]interface{}, len(columnNames))
-			// init interface array
-			for i := range columns {
-				columnPointers[i] = &columns[i]
-			}
-
-			c.Scan(columnPointers...)
-
-			for i, colName := range columnNames {
-				val := columnPointers[i].(*interface{})
-				columnValues[colName] = append(columnValues[colName], *val)
-			}
-		}
-
-		// onto the next schema
-		indexMap++
-		m.Table.Data[schemaName] = columnValues       // data for schema, organized by column
-		m.Data.TableHeaders[schemaName] = columnNames // headers for the schema, for later reference
-		// mapping between schema and an int ( since maps aren't deterministic), for later reference
-		m.Data.TableIndexMap[indexMap] = schemaName
+		PopulateDataForResult(m, c, &indexMap, schemaName)
 	}
 
 	// set the first table to be initial view
 	m.UI.CurrentTable = 1
+
+	return nil
 }
 
+func PopulateDataForResult(m *TuiModel, c *sql.Rows, indexMap *int, schemaName string) {
+	columnNames, _ := c.Columns()
+	columnValues := make(map[string][]interface{})
+
+	for c.Next() { // each row of the table
+		// golang wizardry
+		columns := make([]interface{}, len(columnNames))
+		columnPointers := make([]interface{}, len(columnNames))
+		// init interface array
+		for i := range columns {
+			columnPointers[i] = &columns[i]
+		}
+
+		c.Scan(columnPointers...)
+
+		for i, colName := range columnNames {
+			val := columnPointers[i].(*interface{})
+			columnValues[colName] = append(columnValues[colName], *val)
+		}
+	}
+
+	// onto the next schema
+	*indexMap++
+	m.Table.Data[schemaName] = columnValues       // data for schema, organized by column
+	m.Data.TableHeaders[schemaName] = columnNames // headers for the schema, for later reference
+	// mapping between schema and an int ( since maps aren't deterministic), for later reference
+	m.Data.TableIndexMap[*indexMap] = schemaName
+}
 
 func SwapTableValues(m *TuiModel, f, t *TableState) {
 	from := &f.Data
