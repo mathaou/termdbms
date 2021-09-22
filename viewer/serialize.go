@@ -16,18 +16,18 @@ var (
 )
 
 func Serialize(m *TuiModel) (string, error) {
-	switch m.Table.Database.(type) {
+	switch m.Table().Database.(type) {
 	case *database.SQLite:
-		return SerializeSQLiteDB(m.Table.Database.(*database.SQLite), m), nil
+		return SerializeSQLiteDB(m.Table().Database.(*database.SQLite), m), nil
 	default:
 		return "", errors.New(serializationErrorString)
 	}
 }
 
 func SerializeOverwrite(m *TuiModel) error {
-	switch m.Table.Database.(type) {
+	switch m.Table().Database.(type) {
 	case *database.SQLite:
-		SerializeOverwriteSQLiteDB(m.Table.Database.(*database.SQLite), m)
+		SerializeOverwriteSQLiteDB(m.Table().Database.(*database.SQLite), m)
 		return nil
 	default:
 		return errors.New(serializationErrorString)

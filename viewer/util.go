@@ -144,7 +144,7 @@ func SplitLines(s string) []string {
 func GetScrollDownMaximumForSelection(m *TuiModel) int {
 	max := 0
 	if m.UI.RenderSelection {
-		conv, _ := FormatJson(m.Data.EditTextBuffer)
+		conv, _ := FormatJson(m.Data().EditTextBuffer)
 		lines := SplitLines(conv)
 		max = len(lines)
 	} else if m.UI.FormatModeEnabled {

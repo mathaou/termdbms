@@ -1,6 +1,7 @@
 package viewer
 
 import (
+	"errors"
 	"github.com/charmbracelet/lipgloss"
 	"termdbms/tuiutil"
 )
@@ -85,15 +86,16 @@ func (m *TuiModel) GetRow() int {
 
 // GetSchemaName gets the current schema name
 func (m *TuiModel) GetSchemaName() string {
-	return m.Data.TableIndexMap[m.UI.CurrentTable]
+	return m.Data().TableIndexMap[m.UI.CurrentTable]
 }
 
 // GetHeaders does just that for the current schema
 func (m *TuiModel) GetHeaders() []string {
-	return m.Data.TableHeaders[m.GetSchemaName()]
+	return m.Data().TableHeaders[m.GetSchemaName()]
 }
 
 func (m *TuiModel) SetViewSlices() {
+	d := m.Data()
 	if m.UI.FormatModeEnabled {
 		var slices []*string
 		for i := 0; i < m.Viewport.Height; i++ {
@@ -111,25 +113,31 @@ func (m *TuiModel) SetViewSlices() {
 		}
 	} else {
 		// header slices
-		headers := m.Data.TableHeaders[m.GetSchemaName()]
+		headers := d.TableHeaders[m.GetSchemaName()]
 		headersLen := len(headers)
 
 		if headersLen > maxHeaders {
 			headers = headers[m.Scroll.ScrollXOffset : maxHeaders+m.Scroll.ScrollXOffset-1]
 		}
-
 		// data slices
+		defer func() {
+			if recover() != nil {
+				panic(errors.New("adsf"))
+			}
+		}()
+
 		for _, columnName := range headers {
 			interfaceValues := m.GetSchemaData()[columnName]
 			if len(interfaceValues) >= m.Viewport.Height {
 				min := Min(m.Viewport.YOffset, len(interfaceValues)-m.Viewport.Height)
-				m.Data.TableSlices[columnName] = interfaceValues[min : m.Viewport.Height+min]
+
+				d.TableSlices[columnName] = interfaceValues[min : m.Viewport.Height+min]
 			} else {
-				m.Data.TableSlices[columnName] = interfaceValues
+				d.TableSlices[columnName] = interfaceValues
 			}
 		}
 
-		m.Data.TableHeadersSlice = headers
+		d.TableHeadersSlice = headers
 	}
 	// format slices
 }
@@ -137,7 +145,9 @@ func (m *TuiModel) SetViewSlices() {
 // GetSchemaData is a helper function to get the data of the current schema
 func (m *TuiModel) GetSchemaData() map[string][]interface{} {
 	n := m.GetSchemaName()
-	return m.Table.Data[n].(map[string][]interface{})
+	t := m.Table()
+	d := t.Data
+	return d[n].(map[string][]interface{})
 }
 
 func (m *TuiModel) GetSelectedColumnName() string {
@@ -178,7 +188,7 @@ func (m *TuiModel) GetSelectedOption() (*interface{}, int, []interface{}) {
 }
 
 func (m *TuiModel) DisplayMessage(msg string) {
-	m.Data.EditTextBuffer = msg
+	m.Data().EditTextBuffer = msg
 	m.UI.EditModeEnabled = false
 	m.UI.RenderSelection = true
 }

@@ -1,6 +1,7 @@
 package viewer
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"strings"
@@ -33,7 +34,7 @@ func ExitToDefaultView(m *TuiModel) {
 
 func CreateEmptyBuffer(m *TuiModel, original *interface{}) {
 	PrepareFormatMode(m)
-	m.Data.EditTextBuffer = "\n"
+	m.Data().EditTextBuffer = "\n"
 	m.FormatInput.Original = original
 	m.Format.Text = GetFormattedTextBuffer(m)
 	m.SetViewSlices()
@@ -57,6 +58,27 @@ func EditEnter(m *TuiModel) {
 		input = i
 		raw, _, _ := m.GetSelectedOption()
 		original = raw
+		if input == ":d" && m.QueryData != nil {
+			m.DefaultTable.Database.SetDatabaseReference(m.QueryResult.Database.GetFileName())
+			m.QueryData = nil
+			m.QueryResult = nil
+			var c *sql.Rows
+			defer func() {
+				if c != nil {
+					c.Close()
+				}
+			}()
+			err := SetModel(m, c, m.DefaultTable.Database.GetDatabaseReference())
+			if err != nil {
+				m.DisplayMessage(fmt.Sprintf("%v", err))
+			}
+			ExitToDefaultView(m)
+			return
+		}
+		if m.QueryData != nil {
+			m.TextInput.Model.SetValue("Cannot manipulate database through UI while query results are being displayed.")
+			return
+		}
 		if input == ":h" {
 			m.UI.HelpDisplay = true
 			m.DisplayMessage(GetHelpText())
@@ -65,9 +87,9 @@ func EditEnter(m *TuiModel) {
 			str := GetStringRepresentationOfInterface(*original)
 			PrepareFormatMode(m)
 			if conv, err := FormatJson(str); err == nil { // if json prettify
-				m.Data.EditTextBuffer = conv
+				m.Data().EditTextBuffer = conv
 			} else {
-				m.Data.EditTextBuffer = str
+				m.Data().EditTextBuffer = str
 			}
 			m.FormatInput.Original = original
 			m.Format.Text = GetFormattedTextBuffer(m)
@@ -83,7 +105,7 @@ func EditEnter(m *TuiModel) {
 			return
 		}
 	} else {
-		input = m.Data.EditTextBuffer
+		input = m.Data().EditTextBuffer
 		original = m.FormatInput.Original
 		if (m.UI.FormatModeEnabled &&
 			!(i == ":w" || i == ":wq" || i == ":s" || i == ":s!")) &&
@@ -93,7 +115,7 @@ func EditEnter(m *TuiModel) {
 		}
 	}
 
-	if *original == input {
+	if *original == input || "" == strings.TrimSpace(input) {
 		ExitToDefaultView(m)
 		return
 	}
@@ -120,7 +142,65 @@ func EditEnter(m *TuiModel) {
 		return
 	}
 
-	// plain jane cell update
+	if m.UI.SQLEdit { // if it gets here an its SQLEdit, then :exec was the command
+		if m.QueryResult != nil {
+			m.QueryResult = nil
+		}
+		m.QueryResult = &TableState{ // perform query
+			Database: m.Table().Database,
+			Data:     make(map[string]interface{}),
+		}
+		m.QueryData = &UIData{}
+
+		firstword := strings.ToLower(strings.Split(input, " ")[0])
+		// TODO finish exec vs query
+		if exec := firstword == "input" ||
+			firstword == "update" ||
+			firstword == "delete"; exec {
+			_, err := m.QueryResult.Database.GetDatabaseReference().Exec(input)
+
+			if err != nil {
+				m.QueryResult = nil
+				m.QueryData = nil
+				ExitToDefaultView(m)
+				m.DisplayMessage(fmt.Sprintf("%v", err))
+				return
+			}
+
+			// reset initial model, carry on to undo (undo might have to happen before this)
+		} else { // query
+
+			c, err := m.QueryResult.Database.GetDatabaseReference().Query(input)
+			defer func() {
+				if c != nil {
+					c.Close()
+				}
+			}()
+			if err != nil {
+				m.QueryResult = nil
+				m.QueryData = nil
+				ExitToDefaultView(m)
+				m.DisplayMessage(fmt.Sprintf("%v", err))
+				return
+			}
+
+			i := 0
+
+			m.QueryData.TableHeaders = make(map[string][]string)
+			m.QueryData.TableIndexMap = make(map[int]string)
+			m.QueryData.TableSlices = make(map[string][]interface{})
+			m.QueryData.TableHeadersSlice = []string{}
+
+			PopulateDataForResult(m, c, &i, "results")
+			ExitToDefaultView(m)
+			m.UI.EditModeEnabled = false
+			m.UI.CurrentTable = 1
+			m.Data().EditTextBuffer = ""
+			m.FormatInput.Model.SetValue("")
+		}
+		return
+	}
+
 	if len(m.UndoStack) >= 10 {
 		ref := m.UndoStack[len(m.UndoStack)-1]
 		err := os.Remove(ref.Database.GetFileName())
@@ -131,21 +211,21 @@ func EditEnter(m *TuiModel) {
 		m.UndoStack = m.UndoStack[1:] // need some more complicated logic to handle dereferencing
 	}
 
-	switch m.Table.Database.(type) {
+	switch m.Table().Database.(type) {
 	case *database.SQLite:
 		deepCopy := m.CopyMap()
 		// THE GLOBALIST TAKEOVER
 		deepState := TableState{
 			Database: &database.SQLite{
-				FileName: m.Table.Database.GetFileName(),
+				FileName: m.Table().Database.GetFileName(),
 				Database: nil,
 			},
 			Data: deepCopy,
 		}
 		m.UndoStack = append(m.UndoStack, deepState)
-		dst, _, _ := CopyFile(m.Table.Database.GetFileName())
-		m.Table.Database.CloseDatabaseReference()
-		m.Table.Database.SetDatabaseReference(dst)
+		dst, _, _ := CopyFile(m.Table().Database.GetFileName())
+		m.Table().Database.CloseDatabaseReference()
+		m.Table().Database.SetDatabaseReference(dst)
 		break
 	default:
 		break
@@ -158,40 +238,12 @@ func EditEnter(m *TuiModel) {
 		input = strings.ReplaceAll(input, "\r", "")
 	}
 
-	if m.UI.SQLEdit { // if it gets here an its SQLEdit, then :exec was the command
-		c, err := m.Table.Database.GetDatabaseReference().Query(input)
-		defer func() {
-			if c != nil {
-				c.Close()
-			}
-		}()
-		if err != nil {
-			ExitToDefaultView(m)
-			m.DisplayMessage(fmt.Sprintf("%v", err))
-			return
-		}
-
-		i := 0
-
-		m.Table.Data = make(map[string]interface{})
-		m.Data.TableHeaders = make(map[string][]string)
-		m.Data.TableIndexMap = make(map[int]string)
-		PopulateDataForResult(m, c, &i, "results")
-		ExitToDefaultView(m)
-		m.UI.EditModeEnabled = false
-		m.Data.EditTextBuffer = ""
-		m.FormatInput.Model.SetValue("")
-		// TODO
-		// best way to do this would be to have undo jsut re query the db with the get all tables string at undo, so you couldn't query a query
-		return
-	} else {
-		database.ProcessSqlQueryForDatabaseType(&database.Update{
-			Update: GetInterfaceFromString(input, original),
-		}, m.GetRowData(), m.GetSchemaName(), m.GetSelectedColumnName(), &m.Table.Database)
-	}
+	database.ProcessSqlQueryForDatabaseType(&database.Update{
+		Update: GetInterfaceFromString(input, original),
+	}, m.GetRowData(), m.GetSchemaName(), m.GetSelectedColumnName(), &m.Table().Database)
 
 	m.UI.EditModeEnabled = false
-	m.Data.EditTextBuffer = ""
+	m.Data().EditTextBuffer = ""
 	m.FormatInput.Model.SetValue("")
 
 	*original = input

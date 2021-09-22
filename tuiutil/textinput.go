@@ -701,7 +701,6 @@ func (m TextInputModel) View() string {
 	pos := max(0, m.pos-m.Offset)
 	v := styleText(m.echoTransform(string(value[:pos])))
 
-	// TODO ascii terminal styling
 	if pos < len(value) {
 		if Ascii {
 			v += "¦"

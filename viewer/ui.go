@@ -36,11 +36,11 @@ func SelectOption(m *TuiModel) {
 	if row <= l && l > 0 &&
 		m.MouseData.Y >= HeaderHeight &&
 		m.MouseData.Y < m.Viewport.Height+HeaderHeight &&
-		m.MouseData.X < m.CellWidth()*(len(m.Data.TableHeadersSlice)) {
+		m.MouseData.X < m.CellWidth()*(len(m.Data().TableHeadersSlice)) {
 		if conv, ok := (*raw).(string); ok {
-			m.Data.EditTextBuffer = conv
+			m.Data().EditTextBuffer = conv
 		} else {
-			m.Data.EditTextBuffer = ""
+			m.Data().EditTextBuffer = ""
 		}
 	} else {
 		m.UI.RenderSelection = false
@@ -96,7 +96,7 @@ func DisplayTable(m *TuiModel) string {
 	)
 
 	// go through all columns
-	for c, columnName := range m.Data.TableHeadersSlice {
+	for c, columnName := range m.Data().TableHeadersSlice {
 		if m.UI.ExpandColumn > -1 && m.UI.ExpandColumn != c {
 			continue
 		}
@@ -105,7 +105,7 @@ func DisplayTable(m *TuiModel) string {
 			rowBuilder []string
 		)
 
-		columnValues := m.Data.TableSlices[columnName]
+		columnValues := m.Data().TableSlices[columnName]
 		for r, val := range columnValues {
 			base := m.GetBaseStyle().
 				UnsetBorderLeft().
@@ -139,7 +139,7 @@ func DisplayTable(m *TuiModel) string {
 }
 
 func GetFormattedTextBuffer(m *TuiModel) []string {
-	v := m.Data.EditTextBuffer
+	v := m.Data().EditTextBuffer
 
 	lines := SplitLines(v)
 	FormatModeOffset = len(strconv.Itoa(len(lines))) + 1 // number of characters in the numeric string
@@ -229,9 +229,9 @@ func DisplaySelection(m *TuiModel) string {
 
 	base := m.GetBaseStyle()
 
-	if m.Data.EditTextBuffer != "" { // this is basically just if its a string follow these rules
-		conv := m.Data.EditTextBuffer
-		if c, err := FormatJson(m.Data.EditTextBuffer); err == nil {
+	if m.Data().EditTextBuffer != "" { // this is basically just if its a string follow these rules
+		conv := m.Data().EditTextBuffer
+		if c, err := FormatJson(m.Data().EditTextBuffer); err == nil {
 			conv = c
 		}
 		rows := SplitLines(wordwrap.String(conv, m.Viewport.Width))
