@@ -62,11 +62,13 @@ type FormatState struct {
 
 // TuiModel holds all the necessary state for this app to work the way I designed it to
 type TuiModel struct {
-	Table           TableState // all non-destructive changes are TableStates getting passed around
+	DefaultTable    TableState // all non-destructive changes are TableStates getting passed around
+	QueryResult     *TableState
 	Format          FormatState
 	UI              UIState
 	Scroll          ScrollData
-	Data            UIData
+	DefaultData     UIData
+	QueryData       *UIData
 	Ready           bool
 	InitialFileName string // used if saving destructively
 	Viewport        viewport.Model
@@ -76,6 +78,22 @@ type TuiModel struct {
 	FormatInput     LineEdit
 	UndoStack       []TableState
 	RedoStack       []TableState
+}
+
+func (m *TuiModel) Data() *UIData {
+	if m.QueryData != nil {
+		return m.QueryData
+	}
+
+	return &m.DefaultData
+}
+
+func (m *TuiModel) Table() *TableState {
+	if m.QueryResult != nil {
+		return m.QueryResult
+	}
+
+	return &m.DefaultTable
 }
 
 func SetStyles() {
@@ -194,7 +212,7 @@ func (m TuiModel) View() string {
 				Background(lipgloss.Color(tuiutil.HeaderBackground())).
 				PaddingLeft(1)
 		}
-		headers := m.Data.TableHeadersSlice
+		headers := m.Data().TableHeadersSlice
 		for i, d := range headers { // write all headers
 			if m.UI.ExpandColumn != -1 && i != m.UI.ExpandColumn {
 				continue
@@ -215,10 +233,10 @@ func (m TuiModel) View() string {
 					headerTop = HeaderStyle.Copy().Faint(true).Render(headerTop)
 				}
 			} else {
-				headerTop = fmt.Sprintf("%s (%d/%d) - %d record(s) + %d column(s)",
+				headerTop = fmt.Sprintf(" %s (%d/%d) - %d record(s) + %d column(s)",
 					m.GetSchemaName(),
 					m.UI.CurrentTable,
-					len(m.Data.TableHeaders), // look at how headers get rendered to get accurate record number
+					len(m.Data().TableHeaders), // look at how headers get rendered to get accurate record number
 					len(m.GetColumnData()),
 					len(m.GetHeaders())) // this will need to be refactored when filters get added
 				headerTop += strings.Repeat(" ", m.Viewport.Width-len(headerTop))
@@ -255,8 +273,8 @@ func (m TuiModel) View() string {
 			col = m.Format.CursorY + m.Viewport.YOffset
 		}
 		footer := fmt.Sprintf(" %d, %d ", row, col)
-		undoRedoInfo := fmt.Sprintf("undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
-		switch m.Table.Database.(type) {
+		undoRedoInfo := fmt.Sprintf(" undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
+		switch m.Table().Database.(type) {
 		case *database.SQLite:
 			break
 		default:
@@ -264,7 +282,11 @@ func (m TuiModel) View() string {
 			break
 		}
 		gapSize := m.Viewport.Width - lipgloss.Width(footer) - lipgloss.Width(undoRedoInfo) - 2
-		footer = FooterStyle.Render(undoRedoInfo) + "├" + strings.Repeat("─", gapSize) + "┤" + FooterStyle.Render(footer)
+		queryResultsFlag := "├"
+		if m.QueryData != nil || m.QueryResult != nil {
+			queryResultsFlag = "*"
+		}
+		footer = FooterStyle.Render(undoRedoInfo) + queryResultsFlag + strings.Repeat("─", gapSize) + "┤" + FooterStyle.Render(footer)
 		*f = footer
 
 		done <- true

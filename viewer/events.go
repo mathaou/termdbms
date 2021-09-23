@@ -119,50 +119,56 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		}
 		break
 	case "r": // redo
-		if len(m.RedoStack) > 0 { // do this after you get undo working, basically just the same thing reversed
+		if len(m.RedoStack) > 0 && m.QueryResult == nil && m.QueryData == nil { // do this after you get undo working, basically just the same thing reversed
 			// handle undo
 			deepCopy := m.CopyMap()
 			// THE GLOBALIST TAKEOVER
 			deepState := TableState{
 				Database: &database.SQLite{
-					FileName: m.Table.Database.GetFileName(),
-					Database:       nil,
+					FileName: m.Table().Database.GetFileName(),
+					Database: nil,
 				}, // placeholder for now while testing database copy
 				Data: deepCopy,
 			}
 			m.UndoStack = append(m.UndoStack, deepState)
 			// handle redo
 			from := m.RedoStack[len(m.RedoStack)-1]
-			to := m.Table
-			SwapTableValues(m, &from, &to)
-			m.Table.Database.SetDatabaseReference(from.Database.GetFileName())
+			to := m.Table()
+			SwapTableValues(m, &from, to)
+			m.Table().Database.CloseDatabaseReference()
+			m.Table().Database.SetDatabaseReference(from.Database.GetFileName())
 
 			m.RedoStack = m.RedoStack[0 : len(m.RedoStack)-1] // pop
 		}
 		break
 	case "u": // undo
-		if len(m.UndoStack) > 0 {
+		if len(m.UndoStack) > 0 && m.QueryResult == nil && m.QueryData == nil {
 			// handle redo
 			deepCopy := m.CopyMap()
+			t := m.Table()
 			// THE GLOBALIST TAKEOVER
 			deepState := TableState{
 				Database: &database.SQLite{
-					FileName: m.Table.Database.GetFileName(),
-					Database:       nil,
+					FileName: t.Database.GetFileName(),
+					Database: nil,
 				}, // placeholder for now while testing database copy
 				Data: deepCopy,
 			}
 			m.RedoStack = append(m.RedoStack, deepState)
 			// handle undo
 			from := m.UndoStack[len(m.UndoStack)-1]
-			to := m.Table
-			SwapTableValues(m, &from, &to)
-			m.Table.Database.SetDatabaseReference(from.Database.GetFileName())
+			to := t
+			SwapTableValues(m, &from, to)
+			t.Database.CloseDatabaseReference()
+			t.Database.SetDatabaseReference(from.Database.GetFileName())
 
 			m.UndoStack = m.UndoStack[0 : len(m.UndoStack)-1] // pop
 		}
 		break
 	case ":": // edit mode or format mode depending on string length
+		if m.QueryData != nil || m.QueryResult != nil { // editing not allowed in query view mode
+			break
+		}
 		m.UI.EditModeEnabled = true
 		raw, _, _ := m.GetSelectedOption()
 		if raw == nil {
@@ -178,10 +184,11 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 			cmd = m.FormatInput.Model.FocusCommand()       // get focus
 			m.Scroll.PreScrollYOffset = m.Viewport.YOffset // store scrolling so state can be restored on exit
 			m.Scroll.PreScrollYPosition = m.MouseData.Y
+			d := m.Data()
 			if conv, err := FormatJson(str); err == nil { // if json prettify
-				m.Data.EditTextBuffer = conv
+				d.EditTextBuffer = conv
 			} else {
-				m.Data.EditTextBuffer = str
+				d.EditTextBuffer = str
 			}
 			m.FormatInput.Original = raw // pointer to original data
 			m.Format.Text = GetFormattedTextBuffer(m)
@@ -195,7 +202,9 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		break
 	case "p":
 		if m.UI.RenderSelection {
-			WriteTextFile(m, m.Data.EditTextBuffer)
+			WriteTextFile(m, m.Data().EditTextBuffer)
+		} else if m.QueryData != nil || m.QueryResult != nil {
+			WriteCSV(m)
 		}
 		break
 	case "c":
@@ -205,7 +214,7 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		m.UI.BorderToggle = !m.UI.BorderToggle
 		break
 	case "up", "k": // toggle next schema + 1
-		if m.UI.CurrentTable == len(m.Data.TableIndexMap) {
+		if m.UI.CurrentTable == len(m.Data().TableIndexMap) {
 			m.UI.CurrentTable = 1
 		} else {
 			m.UI.CurrentTable++
@@ -220,7 +229,7 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		break
 	case "down", "j": // toggle previous schema - 1
 		if m.UI.CurrentTable == 1 {
-			m.UI.CurrentTable = len(m.Data.TableIndexMap)
+			m.UI.CurrentTable = len(m.Data().TableIndexMap)
 		} else {
 			m.UI.CurrentTable--
 		}
@@ -249,10 +258,11 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 
 		if m.MouseData.Y-HeaderHeight+m.Viewport.YOffset < max-1 {
 			m.MouseData.Y++
-			ceiling := m.Viewport.Height+HeaderHeight-1
-			tuiutil.Clamp(m.MouseData.Y, m.MouseData.Y + 1, ceiling)
+			ceiling := m.Viewport.Height + HeaderHeight - 1
+			tuiutil.Clamp(m.MouseData.Y, m.MouseData.Y+1, ceiling)
 			if m.MouseData.Y > ceiling {
 				ScrollDown(m)
+				m.MouseData.Y = ceiling
 			}
 		}
 
@@ -268,7 +278,7 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		break
 	case "d": // manual keyboard control for column ++
 		col := m.GetColumn()
-		cols := len(m.Data.TableHeadersSlice) - 1
+		cols := len(m.Data().TableHeadersSlice) - 1
 		if (m.MouseData.X-m.Viewport.Width) <= cw && m.GetColumn() < cols { // within tolerances
 			m.MouseData.X += cw
 		} else if col == cols {
@@ -300,15 +310,16 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		ScrollDown(m)
 		break
 	case "esc": // exit full screen cell value view, also enabled edit mode
-		if !m.UI.RenderSelection && !m.UI.HelpDisplay {
+		m.TextInput.Model.SetValue("")
+		if !m.UI.RenderSelection &&
+			!m.UI.HelpDisplay {
 			m.UI.EditModeEnabled = true
 			break
 		}
 		m.UI.RenderSelection = false
 		m.UI.HelpDisplay = false
-		m.Data.EditTextBuffer = ""
+		m.Data().EditTextBuffer = ""
 		cmd = m.TextInput.Model.FocusCommand()
-		m.TextInput.Model.SetValue("")
 		m.UI.ExpandColumn = -1
 		m.MouseData.Y = m.Scroll.PreScrollYPosition
 		m.Viewport.YOffset = m.Scroll.PreScrollYOffset

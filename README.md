@@ -23,19 +23,26 @@
 
 ![Serialization](https://i.imgur.com/GhMcnid.gif)
 
+#### Query your database!
+
+![querying](https://i.imgur.com/9FB3ETs.gif)
+
 #### Other Features
 
+- Run SQL queries and display the results!
+- Update, delete, or insert with SQL, with undo/redo supported
 - Automatic JSON formatting in selection/format mode
 - Edit multi-line text with vim-like controls
 - Undo/Redo of changes (SQLite only)
 - Themes (press T in table mode)
+- Output query results as a csv
 
 #### Roadmap
 
-- Run SQL queries and display results
 - Add/remove rows/columns/cells
 - Filter tables by fuzzy search
 - MySQL/ PostgreSQL support
+- Line wrapping / horizontal scroll for format/SQL mode
 
 #### 
 <details>
@@ -63,17 +70,18 @@
 Whatever terminal emulator used should support ANSI escape sequences. If there is an option for 256 color mode, enable it. If not available, try running program in ascii mode (-a).
 
 #### Known Issues
+ - Using termdbms over a serial connection works very poorly. This is due to ANSI sequences not being supported natively. Maybe putty/mobaxterm have settings to allow this?
  - The headers wig out sometimes in selection mode
  - Mouse down does not work in Windows Terminal, but it does work in Command Prompt.
  - Tab in format mode does not work at the end of lines or empty lines.
  - Line wrapping is not yet implemented, so text in format mode should be less than the maximum number of columns available per line for best use. It's in the works!
 
 ##### Help:
--p / database path (absolute)
--d / specifies which database driver to use (sqlite/mysql)
--a / enable ascii mode
--h / prints this message
--t / starts app with specific theme (default, nord, solarized)
+    -p / database path (absolute)
+    -d / specifies which database driver to use (sqlite/mysql)
+    -a / enable ascii mode
+    -h / prints this message
+    -t / starts app with specific theme (default, nord, solarized)
 ##### Controls:
 ###### MOUSE
 	Scroll up + down to navigate table/text
@@ -90,24 +98,25 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
     [B] to toggle borders!
     [C] to expand column
 	[T] to cycle through themes!
-    [P] in selection mode to write cell to file
+    [P] in selection mode to write cell to file, or to print query results as CSV.
     [R] to redo actions, if applicable
     [U] to undo actions, if applicable
 	[ESC] to exit full screen view, or to enter edit mode
     [PGDOWN] to scroll down one views worth of rows
     [PGUP] to scroll up one views worth of rows
-###### EDIT MODE (for quick, single line changes)
+###### EDIT MODE (for quick, single line changes and commands)
     [ESC] to enter edit mode with no pre-loaded text input from selection
     When a cell is selected, press [:] to enter edit mode with selection pre-loaded
     The text field in the header will be populated with the selected cells text. Modifications can be made freely
     [ESC] to clear text field in edit mode
     [ENTER] to save text. Anything besides one of the reserved strings below will overwrite the current cell
-    [:q] to exit edit mode
+    [:q] to exit edit mode/ format mode/ SQL mode
     [:s] to save database to a new file (SQLite only)
     [:s!] to overwrite original database file (SQLite only). A confirmation dialog will be added soon
     [:h] to display help text
     [:new] opens current cell with a blank buffer
     [:edit] opens current cell in format mode
+    [:sql] opens blank buffer for creating an SQL statement
     [HOME] to set cursor to end of the text
     [END] to set cursor to the end of the text
 ###### FORMAT MODE (for editing lines of text)
@@ -118,3 +127,10 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
     [:w] to save changes and remain in format view
     [:s] to serialize changes, non-destructive (SQLite only)
     [:s!] to serialize changes, overwriting original file (SQLite only)
+###### SQL MODE (for querying database)
+    [ESC] to move between top control bar and text buffer
+    [:q] to quit out of statement
+    [:exec] to execute statement. Errors will be displayed in full screen view.
+###### QUERY MODE (specifically when viewing query results)
+    [:d] to reset table data back to original view
+    [:sql] to query original database again

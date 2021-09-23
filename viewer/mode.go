@@ -144,7 +144,7 @@ func HandleFormatMovement(m *TuiModel, str string) (ret bool) {
 		break
 	case "end":
 		m.Viewport.YOffset = len(m.Format.Text) - m.Viewport.Height
-		m.Format.CursorY = m.Viewport.Height - FooterHeight
+		m.Format.CursorY = Min(m.Viewport.Height-FooterHeight, strings.Count(m.Data().EditTextBuffer, "\n"))
 		m.Format.CursorX = m.Format.RunningOffsets[len(m.Format.RunningOffsets)-1]
 		ret = true
 		break
@@ -219,19 +219,19 @@ func HandleFormatMovement(m *TuiModel, str string) (ret bool) {
 func InsertCharacter(m *TuiModel, newlineOrTab string) {
 	yOffset := Max(m.Viewport.YOffset, 0)
 	cursor := m.Format.RunningOffsets[m.Format.CursorY+yOffset] + m.Format.CursorX
-	runes := []rune(m.Data.EditTextBuffer)
+	runes := []rune(m.Data().EditTextBuffer)
 	if runes[Min(cursor, len(runes)-1)] == '\n' && newlineOrTab == "\t" {
 		return
 	}
 	min := Max(cursor, 0)
-	min = Min(min, len(m.Data.EditTextBuffer))
+	min = Min(min, len(m.Data().EditTextBuffer))
 	first := runes[:min]
 	last := runes[min:]
 	f := string(first)
 	l := string(last)
-	m.Data.EditTextBuffer = f + newlineOrTab + l
+	m.Data().EditTextBuffer = f + newlineOrTab + l
 	if len(last) == 0 { // for whatever reason, if you don't double up on newlines if appending to end, it gets removed
-		m.Data.EditTextBuffer += newlineOrTab
+		m.Data().EditTextBuffer += newlineOrTab
 	}
 	numLines := 0
 	for _, v := range m.Format.Text {
@@ -282,12 +282,12 @@ func HandleFormatInput(m *TuiModel, str string) bool {
 		} else if m.Format.CursorY > 0 && m.Format.CursorX == 0 { // beginning of line
 			yOffset := Max(m.Viewport.YOffset, 0)
 			cursor := m.Format.RunningOffsets[m.Format.CursorY+yOffset] + m.Format.CursorX
-			runes := []rune(m.Data.EditTextBuffer)
+			runes := []rune(m.Data().EditTextBuffer)
 			min := Max(cursor, 0)
-			min = Min(min, len(m.Data.EditTextBuffer)-1)
+			min = Min(min, len(m.Data().EditTextBuffer)-1)
 			first := runes[:min-1]
 			last := runes[min:]
-			m.Data.EditTextBuffer = string(first) + string(last)
+			m.Data().EditTextBuffer = string(first) + string(last)
 			if yOffset+m.Viewport.Height == len(m.Format.Text) && yOffset > 0 {
 				m.Viewport.YOffset--
 			} else {
@@ -342,7 +342,7 @@ func HandleFormatMode(m *TuiModel, str string) {
 	}
 
 	// if json special rules
-	replacement = m.Data.EditTextBuffer
+	replacement = m.Data().EditTextBuffer
 	cursor := m.Format.RunningOffsets[m.Viewport.YOffset+m.Format.CursorY]
 
 	fIndex := Max(cursor, 0)
@@ -366,7 +366,7 @@ func HandleFormatMode(m *TuiModel, str string) {
 		middle + // insert the edit
 		last // top the edit off with the rest of the string
 
-	m.Data.EditTextBuffer = replacement
+	m.Data().EditTextBuffer = replacement
 	if len(*pString) == FormatModeOffset && str != "backspace" { // insert on empty lines behaves funny
 		*pString = *pString + str
 	} else {
