@@ -153,23 +153,25 @@ func EditEnter(m *TuiModel) {
 		m.QueryData = &UIData{}
 
 		firstword := strings.ToLower(strings.Split(input, " ")[0])
-		// TODO finish exec vs query
 		if exec := firstword == "input" ||
 			firstword == "update" ||
 			firstword == "delete"; exec {
-			_, err := m.QueryResult.Database.GetDatabaseReference().Exec(input)
-
+			m.QueryData = nil
+			m.QueryResult = nil
+			populateUndo(m)
+			_, err := m.DefaultTable.Database.GetDatabaseReference().Exec(input)
+			var c *sql.Rows
+			defer func() {
+				if c != nil {
+					c.Close()
+				}
+			}()
+			err = SetModel(m, c, m.DefaultTable.Database.GetDatabaseReference())
 			if err != nil {
-				m.QueryResult = nil
-				m.QueryData = nil
-				ExitToDefaultView(m)
 				m.DisplayMessage(fmt.Sprintf("%v", err))
-				return
 			}
-
-			// reset initial model, carry on to undo (undo might have to happen before this)
+			ExitToDefaultView(m)
 		} else { // query
-
 			c, err := m.QueryResult.Database.GetDatabaseReference().Query(input)
 			defer func() {
 				if c != nil {
@@ -201,6 +203,32 @@ func EditEnter(m *TuiModel) {
 		return
 	}
 
+	populateUndo(m)
+
+	if _, err := FormatJson(input); err == nil { // if json uglify
+		input = strings.ReplaceAll(input, " ", "")
+		input = strings.ReplaceAll(input, "\n", "")
+		input = strings.ReplaceAll(input, "\t", "")
+		input = strings.ReplaceAll(input, "\r", "")
+	}
+
+	database.ProcessSqlQueryForDatabaseType(&database.Update{
+		Update: GetInterfaceFromString(input, original),
+	}, m.GetRowData(), m.GetSchemaName(), m.GetSelectedColumnName(), &m.Table().Database)
+
+	m.UI.EditModeEnabled = false
+	m.Data().EditTextBuffer = ""
+	m.FormatInput.Model.SetValue("")
+
+	*original = input
+
+	if m.UI.FormatModeEnabled && i == ":wq" {
+		ExitToDefaultView(m)
+	}
+}
+
+func populateUndo(m *TuiModel) {
+
 	if len(m.UndoStack) >= 10 {
 		ref := m.UndoStack[len(m.UndoStack)-1]
 		err := os.Remove(ref.Database.GetFileName())
@@ -229,26 +257,5 @@ func EditEnter(m *TuiModel) {
 		break
 	default:
 		break
-	}
-
-	if _, err := FormatJson(input); err == nil { // if json uglify
-		input = strings.ReplaceAll(input, " ", "")
-		input = strings.ReplaceAll(input, "\n", "")
-		input = strings.ReplaceAll(input, "\t", "")
-		input = strings.ReplaceAll(input, "\r", "")
-	}
-
-	database.ProcessSqlQueryForDatabaseType(&database.Update{
-		Update: GetInterfaceFromString(input, original),
-	}, m.GetRowData(), m.GetSchemaName(), m.GetSelectedColumnName(), &m.Table().Database)
-
-	m.UI.EditModeEnabled = false
-	m.Data().EditTextBuffer = ""
-	m.FormatInput.Model.SetValue("")
-
-	*original = input
-
-	if m.UI.FormatModeEnabled && i == ":wq" {
-		ExitToDefaultView(m)
 	}
 }
