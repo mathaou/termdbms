@@ -218,7 +218,7 @@ func (m TuiModel) View() string {
 				continue
 			}
 
-			text := TruncateIfApplicable(&m, d)
+			text := " " + TruncateIfApplicable(&m, d)
 			builder = append(builder, style.
 				Render(text))
 		}
