@@ -15,11 +15,12 @@ type SQLite struct {
 func (db *SQLite) Update(q *Update) {
 	protoQuery, columnOrder := db.GenerateQuery(q)
 	values := make([]interface{}, len(columnOrder))
+	updateValues := q.GetValues()
 	for i, v := range columnOrder {
 		if i == 0 {
 			values[i] = q.Update
 		} else {
-			values[i] = q.GetValues()[v]
+			values[i] = updateValues[v]
 		}
 	}
 	tx, err := db.GetDatabaseReference().Begin()

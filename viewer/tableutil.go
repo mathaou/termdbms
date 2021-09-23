@@ -31,10 +31,10 @@ func (m *TuiModel) NumHeaders() int {
 		return 1
 	}
 
-	maxHeaders = m.Viewport.Width / 20 // seemed like a good number
+	maxHeaders = m.Viewport.Width / 20
 
 	if l > maxHeaders {
-		return maxHeaders
+		return 4
 	}
 
 	return l
@@ -151,7 +151,8 @@ func (m *TuiModel) GetSchemaData() map[string][]interface{} {
 }
 
 func (m *TuiModel) GetSelectedColumnName() string {
-	return m.GetHeaders()[m.GetColumn()]
+	col := m.GetColumn()
+	return m.GetHeaders()[Min(m.NumHeaders()-1, col)]
 }
 
 func (m *TuiModel) GetColumnData() []interface{} {

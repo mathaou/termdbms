@@ -54,10 +54,14 @@ func GetInterfaceFromString(str string, original *interface{}) interface{} {
 		bVal, _ := strconv.ParseBool(str)
 		return bVal
 	case int64:
+		iVal, _ := strconv.ParseInt(str, 10, 64)
+		return iVal
 	case int32:
 		iVal, _ := strconv.ParseInt(str, 10, 64)
 		return iVal
 	case float64:
+		fVal, _ := strconv.ParseFloat(str, 64)
+		return fVal
 	case float32:
 		fVal, _ := strconv.ParseFloat(str, 64)
 		return fVal
@@ -92,7 +96,51 @@ func GetStringRepresentationOfInterface(val interface{}) string {
 	return ""
 }
 
+func WriteCSV(m *TuiModel) { // basically display table but without any styling
+	if m.QueryData == nil || m.QueryResult == nil {
+		return // should never happen but just making sure
+	}
+
+	var (
+		builder [][]string
+		buffer  strings.Builder
+	)
+
+	d := m.Data()
+
+	// go through all columns
+	for _, columnName := range d.TableHeaders[QueryResultsTableName] {
+		var (
+			rowBuilder []string
+		)
+
+		columnValues := m.GetSchemaData()[columnName]
+		rowBuilder = append(rowBuilder, columnName)
+		for _, val := range columnValues {
+			s := GetStringRepresentationOfInterface(val)
+			// display text based on type
+			rowBuilder = append(rowBuilder, s)
+		}
+		builder = append(builder, rowBuilder)
+	}
+
+	depth := len(builder[0])
+	headers := len(builder)
+
+	for i := 0; i < depth; i++ {
+		var r []string
+		for x := 0; x < headers; x++ {
+			r = append(r, builder[x][i])
+		}
+		buffer.WriteString(strings.Join(r, ","))
+		buffer.WriteString("\n")
+	}
+
+	WriteTextFile(m, buffer.String())
+}
+
 func WriteTextFile(m *TuiModel, text string) (string, error) {
+	rand.Seed(time.Now().Unix())
 	fileName := m.GetSchemaName() + "_" + "renderView_" + fmt.Sprintf("%d", rand.Int()) + ".txt"
 	e := os.WriteFile(fileName, []byte(text), 0777)
 	return fileName, e
@@ -188,6 +236,7 @@ func Hash(s string) uint32 {
 
 func CopyFile(src string) (string, int64, error) {
 	sourceFileStat, err := os.Stat(src)
+	rand.Seed(time.Now().UnixNano())
 	dst := fmt.Sprintf(".%d",
 		Hash(fmt.Sprintf("%s%d",
 			src,

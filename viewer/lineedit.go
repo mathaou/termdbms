@@ -2,11 +2,16 @@ package viewer
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"termdbms/database"
 	"termdbms/tuiutil"
+)
+
+const (
+	QueryResultsTableName = "results"
 )
 
 type EnterFunction func(m *TuiModel, selectedInput *tuiutil.TextInputModel, input string)
@@ -45,6 +50,10 @@ func CreateEmptyBuffer(m *TuiModel, original *interface{}) {
 func EditEnter(m *TuiModel) {
 	selectedInput := &m.TextInput.Model
 	i := selectedInput.Value()
+
+	d := m.Data()
+	t := m.Table()
+
 	var (
 		original *interface{}
 		input    string
@@ -58,7 +67,7 @@ func EditEnter(m *TuiModel) {
 		input = i
 		raw, _, _ := m.GetSelectedOption()
 		original = raw
-		if input == ":d" && m.QueryData != nil {
+		if input == ":d" && m.QueryData != nil && m.QueryResult != nil {
 			m.DefaultTable.Database.SetDatabaseReference(m.QueryResult.Database.GetFileName())
 			m.QueryData = nil
 			m.QueryResult = nil
@@ -87,9 +96,9 @@ func EditEnter(m *TuiModel) {
 			str := GetStringRepresentationOfInterface(*original)
 			PrepareFormatMode(m)
 			if conv, err := FormatJson(str); err == nil { // if json prettify
-				m.Data().EditTextBuffer = conv
+				d.EditTextBuffer = conv
 			} else {
-				m.Data().EditTextBuffer = str
+				d.EditTextBuffer = str
 			}
 			m.FormatInput.Original = original
 			m.Format.Text = GetFormattedTextBuffer(m)
@@ -105,7 +114,7 @@ func EditEnter(m *TuiModel) {
 			return
 		}
 	} else {
-		input = m.Data().EditTextBuffer
+		input = d.EditTextBuffer
 		original = m.FormatInput.Original
 		if (m.UI.FormatModeEnabled &&
 			!(i == ":w" || i == ":wq" || i == ":s" || i == ":s!")) &&
@@ -142,6 +151,41 @@ func EditEnter(m *TuiModel) {
 		return
 	}
 
+	if handleSQLMode(m, input) {
+		return
+	}
+	old, n := populateUndo(m)
+	if old == n || n != m.DefaultTable.Database.GetFileName() {
+		panic(errors.New("ASdafadsf"))
+	}
+
+	if _, err := FormatJson(input); err == nil { // if json uglify
+		input = strings.ReplaceAll(input, " ", "")
+		input = strings.ReplaceAll(input, "\n", "")
+		input = strings.ReplaceAll(input, "\t", "")
+		input = strings.ReplaceAll(input, "\r", "")
+	}
+
+	u := GetInterfaceFromString(input, original)
+	if u == nil {
+		panic(errors.New("adsf"))
+	}
+	database.ProcessSqlQueryForDatabaseType(&database.Update{
+		Update: u,
+	}, m.GetRowData(), m.GetSchemaName(), m.GetSelectedColumnName(), &t.Database)
+
+	m.UI.EditModeEnabled = false
+	d.EditTextBuffer = ""
+	m.FormatInput.Model.SetValue("")
+
+	*original = input
+
+	if m.UI.FormatModeEnabled && i == ":wq" {
+		ExitToDefaultView(m)
+	}
+}
+
+func handleSQLMode(m *TuiModel, input string) bool {
 	if m.UI.SQLEdit { // if it gets here an its SQLEdit, then :exec was the command
 		if m.QueryResult != nil {
 			m.QueryResult = nil
@@ -183,7 +227,7 @@ func EditEnter(m *TuiModel) {
 				m.QueryData = nil
 				ExitToDefaultView(m)
 				m.DisplayMessage(fmt.Sprintf("%v", err))
-				return
+				return true
 			}
 
 			i := 0
@@ -193,42 +237,20 @@ func EditEnter(m *TuiModel) {
 			m.QueryData.TableSlices = make(map[string][]interface{})
 			m.QueryData.TableHeadersSlice = []string{}
 
-			PopulateDataForResult(m, c, &i, "results")
+			PopulateDataForResult(m, c, &i, QueryResultsTableName)
 			ExitToDefaultView(m)
 			m.UI.EditModeEnabled = false
 			m.UI.CurrentTable = 1
 			m.Data().EditTextBuffer = ""
 			m.FormatInput.Model.SetValue("")
 		}
-		return
+		return true
 	}
 
-	populateUndo(m)
-
-	if _, err := FormatJson(input); err == nil { // if json uglify
-		input = strings.ReplaceAll(input, " ", "")
-		input = strings.ReplaceAll(input, "\n", "")
-		input = strings.ReplaceAll(input, "\t", "")
-		input = strings.ReplaceAll(input, "\r", "")
-	}
-
-	database.ProcessSqlQueryForDatabaseType(&database.Update{
-		Update: GetInterfaceFromString(input, original),
-	}, m.GetRowData(), m.GetSchemaName(), m.GetSelectedColumnName(), &m.Table().Database)
-
-	m.UI.EditModeEnabled = false
-	m.Data().EditTextBuffer = ""
-	m.FormatInput.Model.SetValue("")
-
-	*original = input
-
-	if m.UI.FormatModeEnabled && i == ":wq" {
-		ExitToDefaultView(m)
-	}
+	return false
 }
 
-func populateUndo(m *TuiModel) {
-
+func populateUndo(m *TuiModel) (old string, new string) {
 	if len(m.UndoStack) >= 10 {
 		ref := m.UndoStack[len(m.UndoStack)-1]
 		err := os.Remove(ref.Database.GetFileName())
@@ -236,26 +258,30 @@ func populateUndo(m *TuiModel) {
 			fmt.Printf("%v", err)
 			os.Exit(1)
 		}
-		m.UndoStack = m.UndoStack[1:] // need some more complicated logic to handle dereferencing
+		m.UndoStack = m.UndoStack[1:] // need some more complicated logic to handle dereferencing?
 	}
 
-	switch m.Table().Database.(type) {
+	switch m.DefaultTable.Database.(type) {
 	case *database.SQLite:
 		deepCopy := m.CopyMap()
 		// THE GLOBALIST TAKEOVER
 		deepState := TableState{
 			Database: &database.SQLite{
-				FileName: m.Table().Database.GetFileName(),
+				FileName: m.DefaultTable.Database.GetFileName(),
 				Database: nil,
 			},
 			Data: deepCopy,
 		}
 		m.UndoStack = append(m.UndoStack, deepState)
-		dst, _, _ := CopyFile(m.Table().Database.GetFileName())
-		m.Table().Database.CloseDatabaseReference()
-		m.Table().Database.SetDatabaseReference(dst)
+		old = m.DefaultTable.Database.GetFileName()
+		dst, _, _ := CopyFile(old)
+		new = dst
+		m.DefaultTable.Database.CloseDatabaseReference()
+		m.DefaultTable.Database.SetDatabaseReference(dst)
 		break
 	default:
 		break
 	}
+
+	return old, new
 }

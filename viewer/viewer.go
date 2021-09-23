@@ -233,7 +233,7 @@ func (m TuiModel) View() string {
 					headerTop = HeaderStyle.Copy().Faint(true).Render(headerTop)
 				}
 			} else {
-				headerTop = fmt.Sprintf("%s (%d/%d) - %d record(s) + %d column(s)",
+				headerTop = fmt.Sprintf(" %s (%d/%d) - %d record(s) + %d column(s)",
 					m.GetSchemaName(),
 					m.UI.CurrentTable,
 					len(m.Data().TableHeaders), // look at how headers get rendered to get accurate record number
@@ -273,7 +273,7 @@ func (m TuiModel) View() string {
 			col = m.Format.CursorY + m.Viewport.YOffset
 		}
 		footer := fmt.Sprintf(" %d, %d ", row, col)
-		undoRedoInfo := fmt.Sprintf("undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
+		undoRedoInfo := fmt.Sprintf(" undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
 		switch m.Table().Database.(type) {
 		case *database.SQLite:
 			break
@@ -282,7 +282,11 @@ func (m TuiModel) View() string {
 			break
 		}
 		gapSize := m.Viewport.Width - lipgloss.Width(footer) - lipgloss.Width(undoRedoInfo) - 2
-		footer = FooterStyle.Render(undoRedoInfo) + "├" + strings.Repeat("─", gapSize) + "┤" + FooterStyle.Render(footer)
+		queryResultsFlag := "├"
+		if m.QueryData != nil || m.QueryResult != nil {
+			queryResultsFlag = "*"
+		}
+		footer = FooterStyle.Render(undoRedoInfo) + queryResultsFlag + strings.Repeat("─", gapSize) + "┤" + FooterStyle.Render(footer)
 		*f = footer
 
 		done <- true

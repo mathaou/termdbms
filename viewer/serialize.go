@@ -25,9 +25,10 @@ func Serialize(m *TuiModel) (string, error) {
 }
 
 func SerializeOverwrite(m *TuiModel) error {
-	switch m.Table().Database.(type) {
+	t := m.Table()
+	switch t.Database.(type) {
 	case *database.SQLite:
-		SerializeOverwriteSQLiteDB(m.Table().Database.(*database.SQLite), m)
+		SerializeOverwriteSQLiteDB(t.Database.(*database.SQLite), m)
 		return nil
 	default:
 		return errors.New(serializationErrorString)
@@ -54,7 +55,9 @@ func SerializeSQLiteDB(db *database.SQLite, m *TuiModel) string {
 
 func SerializeOverwriteSQLiteDB(db *database.SQLite, m *TuiModel) {
 	db.CloseDatabaseReference()
-	source, err := os.ReadFile(db.GetFileName())
+	filename := db.GetFileName()
+
+	source, err := os.ReadFile(filename)
 	if err != nil {
 		panic(err)
 	}
@@ -63,5 +66,5 @@ func SerializeOverwriteSQLiteDB(db *database.SQLite, m *TuiModel) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	db.SetDatabaseReference(db.GetFileName())
+	db.SetDatabaseReference(filename)
 }

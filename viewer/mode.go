@@ -144,7 +144,7 @@ func HandleFormatMovement(m *TuiModel, str string) (ret bool) {
 		break
 	case "end":
 		m.Viewport.YOffset = len(m.Format.Text) - m.Viewport.Height
-		m.Format.CursorY = m.Viewport.Height - FooterHeight
+		m.Format.CursorY = Min(m.Viewport.Height-FooterHeight, strings.Count(m.Data().EditTextBuffer, "\n"))
 		m.Format.CursorX = m.Format.RunningOffsets[len(m.Format.RunningOffsets)-1]
 		ret = true
 		break
