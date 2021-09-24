@@ -267,7 +267,7 @@ func DisplaySelection(m *TuiModel) string {
 		lines = append(lines, "")
 	}
 
-	prettyPrint = base.Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+	prettyPrint = " " + base.Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
 
 	return wordwrap.String(prettyPrint, m.Viewport.Width)
 }

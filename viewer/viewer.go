@@ -209,8 +209,7 @@ func (m TuiModel) View() string {
 			// for column headers
 			style = style.Foreground(lipgloss.Color(tuiutil.HeaderForeground())).
 				BorderBackground(lipgloss.Color(tuiutil.HeaderBorderBackground())).
-				Background(lipgloss.Color(tuiutil.HeaderBackground())).
-				PaddingLeft(1)
+				Background(lipgloss.Color(tuiutil.HeaderBackground()))
 		}
 		headers := m.Data().TableHeadersSlice
 		for i, d := range headers { // write all headers
@@ -239,21 +238,11 @@ func (m TuiModel) View() string {
 					len(m.Data().TableHeaders), // look at how headers get rendered to get accurate record number
 					len(m.GetColumnData()),
 					len(m.GetHeaders())) // this will need to be refactored when filters get added
-				headerTop += strings.Repeat(" ", m.Viewport.Width-len(headerTop))
 				headerTop = HeaderStyle.Render(headerTop)
 			}
 
-			// separator
-			headerBot := strings.Repeat(
-				HeaderDividerStyle.
-					Render("¯"),
-				m.Viewport.Width)
-			headerMid := strings.Join(builder, "")
-			//headerMid = headerMid + strings.Repeat(" ", m.Viewport.Width)
-			*h = fmt.Sprintf("%s\n%s\n%s",
-				headerTop,
-				headerMid,
-				headerBot)
+			headerMid := lipgloss.JoinHorizontal(lipgloss.Left, builder...)
+			*h = lipgloss.JoinVertical(lipgloss.Left, headerTop, headerMid)
 		}
 
 		done <- true

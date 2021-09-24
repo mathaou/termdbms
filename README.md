@@ -39,10 +39,12 @@
 
 #### Roadmap
 
-- Add/remove rows/columns/cells
-- Filter tables by fuzzy search
+- Save SQL queries to a built-in clipboard!
+- Updated styling!
+- Add/remove rows/columns/cells with context menu
+- Filter tables by fuzzy search with context menu
 - MySQL/ PostgreSQL support
-- Line wrapping / horizontal scroll for format/SQL mode
+- Line wrapping / horizontal scroll for format/SQL mode, as well as better handling of lots of tabs and newlines.
 
 #### 
 <details>
@@ -75,6 +77,7 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
  - Mouse down does not work in Windows Terminal, but it does work in Command Prompt.
  - Tab in format mode does not work at the end of lines or empty lines.
  - Line wrapping is not yet implemented, so text in format mode should be less than the maximum number of columns available per line for best use. It's in the works!
+ - Weird combinations of newlines + tabs can break stuff. Tabs at beginning and mid-line works in a stable manner.
 
 ##### Help:
     -p / database path (absolute)
