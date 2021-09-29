@@ -2,7 +2,7 @@ package viewer
 
 import (
 	"fmt"
-	"github.com/charmbracelet/bubbles/viewport"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"strings"
@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	HeaderHeight       = 3
+	HeaderHeight       = 2
 	FooterHeight       = 1
 	MaxInputLength     int
 	HeaderStyle        lipgloss.Style
@@ -19,66 +19,6 @@ var (
 	HeaderDividerStyle lipgloss.Style
 	InitialModel       *TuiModel
 )
-
-type ScrollData struct {
-	PreScrollYOffset   int
-	PreScrollYPosition int
-	ScrollXOffset      int
-}
-
-// TableState holds everything needed to save/serialize state
-type TableState struct {
-	Database database.Database
-	Data     map[string]interface{}
-}
-
-type UIState struct {
-	CanFormatScroll   bool
-	RenderSelection   bool // render mode
-	HelpDisplay       bool // help display mode
-	EditModeEnabled   bool // edit mode
-	FormatModeEnabled bool
-	BorderToggle      bool
-	SQLEdit           bool
-	ExpandColumn      int
-	CurrentTable      int
-}
-
-type UIData struct {
-	TableHeaders      map[string][]string // keeps track of which schema has which headers
-	TableHeadersSlice []string
-	TableSlices       map[string][]interface{}
-	TableIndexMap     map[int]string // keeps the schemas in order
-	EditTextBuffer    string
-}
-
-type FormatState struct {
-	EditSlices     []*string // the bit to show
-	Text           []string  // the master collection of lines to edit
-	RunningOffsets []int     // this is a LUT for where in the original EditTextBuffer each line starts
-	CursorX        int
-	CursorY        int
-}
-
-// TuiModel holds all the necessary state for this app to work the way I designed it to
-type TuiModel struct {
-	DefaultTable    TableState // all non-destructive changes are TableStates getting passed around
-	QueryResult     *TableState
-	Format          FormatState
-	UI              UIState
-	Scroll          ScrollData
-	DefaultData     UIData
-	QueryData       *UIData
-	Ready           bool
-	InitialFileName string // used if saving destructively
-	Viewport        viewport.Model
-	TableStyle      lipgloss.Style
-	MouseData       tea.MouseEvent
-	TextInput       LineEdit
-	FormatInput     LineEdit
-	UndoStack       []TableState
-	RedoStack       []TableState
-}
 
 func (m *TuiModel) Data() *UIData {
 	if m.QueryData != nil {
@@ -131,6 +71,10 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		commands []tea.Cmd
 	)
 
+	if !m.UI.FormatModeEnabled {
+		m.Viewport, _ = m.Viewport.Update(message)
+	}
+
 	switch msg := message.(type) {
 	case tea.MouseMsg:
 		HandleMouseEvents(&m, &msg)
@@ -138,25 +82,54 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		break
 	case tea.WindowSizeMsg:
 		event := HandleWindowSizeEvents(&m, &msg)
-		commands = append(commands, event)
+		if event != nil {
+			commands = append(commands, event)
+		}
 		break
 	case tea.KeyMsg:
+		str := msg.String()
+		if m.UI.ShowClipboard {
+			state := m.ClipboardList.FilterState()
+			if (str == "q" || str == "esc" || str == "enter") && state == list.Unfiltered {
+				switch str {
+				case "enter":
+					i, ok := m.ClipboardList.SelectedItem().(SQLSnippet)
+					if ok {
+						ExitToDefaultView(&m)
+						CreatePopulatedBuffer(&m, nil, i.Query)
+						m.UI.SQLEdit = true
+					}
+					break
+				default:
+					ExitToDefaultView(&m)
+				}
+				return m, nil
+			}
+			
+			m.ClipboardList, command = m.ClipboardList.Update(msg)
+			break
+		}
 		// when fullscreen selection viewing is in session, don't allow UI manipulation other than quit or exit
 		s := msg.String()
-		if m.UI.RenderSelection &&
+		invalidRenderCommand := m.UI.RenderSelection &&
 			s != "esc" &&
 			s != "ctrl+c" &&
 			s != "q" &&
 			s != "p" &&
 			s != "m" &&
-			s != "n" {
+			s != "n"
+		if invalidRenderCommand {
 			break
 		}
+
 		if s == "ctrl+c" || (s == "q" && (!m.UI.EditModeEnabled && !m.UI.FormatModeEnabled)) {
 			return m, tea.Quit
 		}
 
-		HandleKeyboardEvents(&m, &msg)
+		event := HandleKeyboardEvents(&m, &msg)
+		if event != nil {
+			commands = append(commands, event)
+		}
 		if !m.UI.EditModeEnabled && m.Ready {
 			m.SetViewSlices()
 			if m.UI.FormatModeEnabled {
@@ -167,10 +140,6 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		break
 	case error:
 		return m, nil
-	}
-
-	if !m.UI.FormatModeEnabled {
-		m.Viewport, _ = m.Viewport.Update(message)
 	}
 
 	if m.Viewport.HighPerformanceRendering {
@@ -199,6 +168,11 @@ func (m TuiModel) View() string {
 
 	// header
 	go func(h *string) {
+		if m.UI.ShowClipboard {
+			done <- true
+			return
+		}
+
 		var (
 			builder []string
 		)
@@ -250,6 +224,10 @@ func (m TuiModel) View() string {
 
 	// footer (shows row/col for now)
 	go func(f *string) {
+		if m.UI.ShowClipboard {
+			done <- true
+			return
+		}
 		var (
 			row int
 			col int
@@ -261,7 +239,7 @@ func (m TuiModel) View() string {
 			row = m.Format.CursorX
 			col = m.Format.CursorY + m.Viewport.YOffset
 		}
-		footer := fmt.Sprintf(" %d, %d ", row, col)
+		footer := fmt.Sprintf(" %d, %d + %d, %d ", m.MouseData.X, m.MouseData.Y, row, col)
 		undoRedoInfo := fmt.Sprintf(" undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
 		switch m.Table().Database.(type) {
 		case *database.SQLite:
@@ -287,6 +265,10 @@ func (m TuiModel) View() string {
 	<-done
 
 	close(done) // close
+
+	if m.UI.ShowClipboard {
+		return content
+	}
 
 	return fmt.Sprintf("%s\n%s\n%s", header, content, footer) // render
 }

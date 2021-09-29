@@ -7,8 +7,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
+	"io/fs"
 	_ "modernc.org/sqlite"
 	"os"
+	"path/filepath"
 	"strings"
 	"termdbms/database"
 	. "termdbms/tuiutil"
@@ -94,10 +96,15 @@ func main() {
 	}
 
 	if valid, _ := Exists(HiddenTmpDirectoryName); valid {
-		os.RemoveAll(HiddenTmpDirectoryName)
+		filepath.Walk(HiddenTmpDirectoryName, func(path string, info fs.FileInfo, err error) error {
+			if strings.HasPrefix(path, fmt.Sprintf("%s/.", HiddenTmpDirectoryName)) && !info.IsDir() {
+				os.Remove(path) // remove all temp databaess
+			}
+			return nil
+		})
+	} else {
+		os.Mkdir(HiddenTmpDirectoryName, 0777)
 	}
-
-	os.Mkdir(HiddenTmpDirectoryName, 0777)
 
 	// steps
 	// make a copy of the database file, load this

@@ -217,6 +217,10 @@ func DisplayFormatText(m *TuiModel) string {
 	return ret
 }
 
+func ShowClipboard(m *TuiModel) string {
+	return m.ClipboardList.View()
+}
+
 // DisplaySelection does that or writes it to a file if the selection is over a limit
 func DisplaySelection(m *TuiModel) string {
 	col := m.GetColumnData()

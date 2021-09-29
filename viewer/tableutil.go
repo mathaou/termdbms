@@ -10,6 +10,9 @@ var maxHeaders int
 
 // AssembleTable shows either the selection text or the table
 func AssembleTable(m *TuiModel) string {
+	if m.UI.ShowClipboard {
+		return ShowClipboard(m)
+	}
 	if m.UI.HelpDisplay {
 		return GetHelpText()
 	}
@@ -91,7 +94,9 @@ func (m *TuiModel) GetSchemaName() string {
 
 // GetHeaders does just that for the current schema
 func (m *TuiModel) GetHeaders() []string {
-	return m.Data().TableHeaders[m.GetSchemaName()]
+	schema := m.GetSchemaName()
+	d := m.Data()
+	return d.TableHeaders[schema]
 }
 
 func (m *TuiModel) SetViewSlices() {
@@ -152,7 +157,9 @@ func (m *TuiModel) GetSchemaData() map[string][]interface{} {
 
 func (m *TuiModel) GetSelectedColumnName() string {
 	col := m.GetColumn()
-	return m.GetHeaders()[Min(m.NumHeaders()-1, col)]
+	headers := m.GetHeaders()
+	index := Min(m.NumHeaders()-1, col)
+	return headers[index]
 }
 
 func (m *TuiModel) GetColumnData() []interface{} {

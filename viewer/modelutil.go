@@ -2,6 +2,10 @@ package viewer
 
 import (
 	"database/sql"
+	"encoding/json"
+	"fmt"
+	"github.com/charmbracelet/bubbles/list"
+	"os"
 	"strings"
 	"termdbms/database"
 	"termdbms/tuiutil"
@@ -78,8 +82,28 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 		FormatInput: LineEdit{
 			Model: tuiutil.NewModel(),
 		},
+		Clipboard: []list.Item{},
 	}
 	m.FormatInput.Model.Prompt = ""
+
+	snippetsFile := fmt.Sprintf("%s/%s", HiddenTmpDirectoryName, SQLSnippetsFile)
+
+	exists, _ := Exists(snippetsFile)
+	if exists {
+		contents, _ := os.ReadFile(snippetsFile)
+		var c []SQLSnippet
+		json.Unmarshal(contents, &c)
+		for _, v := range c {
+			m.Clipboard = append(m.Clipboard, v)
+		}
+	}
+
+	m.ClipboardList = list.NewModel(m.Clipboard, itemDelegate{}, 0, 0)
+
+	m.ClipboardList.SetFilteringEnabled(true)
+	m.ClipboardList.SetShowPagination(true)
+	m.ClipboardList.SetShowTitle(false)
+
 	return m
 }
 

@@ -44,7 +44,7 @@
 - Add/remove rows/columns/cells with context menu
 - Filter tables by fuzzy search with context menu
 - MySQL/ PostgreSQL support
-- Line wrapping / horizontal scroll for format/SQL mode, as well as better handling of lots of tabs and newlines.
+- Line wrapping / horizontal scroll for format/SQL mode.
 
 #### 
 <details>
