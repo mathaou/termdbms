@@ -2,12 +2,15 @@ package viewer
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"termdbms/database"
 	"termdbms/tuiutil"
+	"time"
 )
 
 const (
@@ -25,6 +28,7 @@ func ExitToDefaultView(m *TuiModel) {
 	m.UI.EditModeEnabled = false
 	m.UI.FormatModeEnabled = false
 	m.UI.SQLEdit = false
+	m.UI.ShowClipboard = false
 	m.UI.HelpDisplay = false
 	m.UI.CanFormatScroll = false
 	m.Format.CursorY = 0
@@ -47,6 +51,16 @@ func CreateEmptyBuffer(m *TuiModel, original *interface{}) {
 	return
 }
 
+func CreatePopulatedBuffer(m *TuiModel, original *interface{}, str string) {
+	PrepareFormatMode(m)
+	m.Data().EditTextBuffer = str
+	m.FormatInput.Original = original
+	m.Format.Text = GetFormattedTextBuffer(m)
+	m.SetViewSlices()
+	m.FormatInput.Model.SetCursor(0)
+	return
+}
+
 func EditEnter(m *TuiModel) {
 	selectedInput := &m.TextInput.Model
 	i := selectedInput.Value()
@@ -59,11 +73,11 @@ func EditEnter(m *TuiModel) {
 		input    string
 	)
 
-	if i == ":q" { // quit mod mode
+	if i == ":q" || i == "" { // quit mod mode
 		ExitToDefaultView(m)
 		return
 	}
-	if !m.UI.FormatModeEnabled && !m.UI.SQLEdit {
+	if !m.UI.FormatModeEnabled && !m.UI.SQLEdit && !m.UI.ShowClipboard {
 		input = i
 		raw, _, _ := m.GetSelectedOption()
 		original = raw
@@ -77,7 +91,7 @@ func EditEnter(m *TuiModel) {
 					c.Close()
 				}
 			}()
-			err := SetModel(m, c, m.DefaultTable.Database.GetDatabaseReference())
+			err := m.SetModel(c, m.DefaultTable.Database.GetDatabaseReference())
 			if err != nil {
 				m.DisplayMessage(fmt.Sprintf("%v", err))
 			}
@@ -85,7 +99,8 @@ func EditEnter(m *TuiModel) {
 			return
 		}
 		if m.QueryData != nil {
-			m.TextInput.Model.SetValue("Cannot manipulate database through UI while query results are being displayed.")
+			m.TextInput.Model.SetValue("")
+			m.WriteMessage("Cannot manipulate database through UI while query results are being displayed.")
 			return
 		}
 		if input == ":h" {
@@ -112,19 +127,26 @@ func EditEnter(m *TuiModel) {
 			CreateEmptyBuffer(m, original)
 			m.UI.SQLEdit = true
 			return
+		} else if input == ":clip" {
+			ExitToDefaultView(m)
+			if len( m.ClipboardList.Items()) == 0 {
+				return
+			}
+			m.UI.ShowClipboard = true
+			return
 		}
 	} else {
 		input = d.EditTextBuffer
 		original = m.FormatInput.Original
-		if (m.UI.FormatModeEnabled &&
-			!(i == ":w" || i == ":wq" || i == ":s" || i == ":s!")) &&
-			(m.UI.SQLEdit && !(i == ":exec")) {
+		sqlFlags := m.UI.SQLEdit && !(i == ":exec" || strings.HasPrefix(i, ":stow"))
+		formatFlags := m.UI.FormatModeEnabled && !(i == ":w" || i == ":wq" || i == ":s" || i == ":s!")
+		if formatFlags && sqlFlags {
 			m.TextInput.Model.SetValue("")
 			return
 		}
 	}
 
-	if *original == input || "" == strings.TrimSpace(input) {
+	if (original != nil && *original == input) || "" == strings.TrimSpace(input) {
 		ExitToDefaultView(m)
 		return
 	}
@@ -151,12 +173,37 @@ func EditEnter(m *TuiModel) {
 		return
 	}
 
-	if handleSQLMode(m, input) {
+	if m.UI.SQLEdit {
+		if i == ":exec" {
+			handleSQLMode(m, input)
+		} else if strings.HasPrefix(i, ":stow") {
+			if len(input) > 0 {
+				split := strings.Split(i, " ")
+				rand.Seed(time.Now().UnixNano())
+				r := rand.Int()
+				title := fmt.Sprintf("%d", r) // if no title given then just call it random string
+				if len(split) == 2 {
+					title = split[1]
+				}
+				m.Clipboard = append(m.Clipboard, SQLSnippet{
+					Query: input,
+					Name: title,
+				})
+				b, _ := json.Marshal(m.Clipboard)
+				snippetsFile := fmt.Sprintf("%s/%s", HiddenTmpDirectoryName, SQLSnippetsFile)
+				f, _ := os.OpenFile(snippetsFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0775)
+				f.Write(b)
+				f.Close()
+				m.WriteMessage(fmt.Sprintf("Wrote SQL snippet %s to %s. Total count is %d", title, snippetsFile, len(m.ClipboardList.Items()) + 1))
+			}
+			m.TextInput.Model.SetValue("")
+		}
 		return
 	}
+
 	old, n := populateUndo(m)
 	if old == n || n != m.DefaultTable.Database.GetFileName() {
-		panic(errors.New("ASdafadsf"))
+		panic(errors.New("could not get database file name"))
 	}
 
 	if _, err := FormatJson(input); err == nil { // if json uglify
@@ -167,9 +214,6 @@ func EditEnter(m *TuiModel) {
 	}
 
 	u := GetInterfaceFromString(input, original)
-	if u == nil {
-		panic(errors.New("adsf"))
-	}
 	database.ProcessSqlQueryForDatabaseType(&database.Update{
 		Update: u,
 	}, m.GetRowData(), m.GetSchemaName(), m.GetSelectedColumnName(), &t.Database)
@@ -185,69 +229,70 @@ func EditEnter(m *TuiModel) {
 	}
 }
 
-func handleSQLMode(m *TuiModel, input string) bool {
-	if m.UI.SQLEdit { // if it gets here an its SQLEdit, then :exec was the command
-		if m.QueryResult != nil {
-			m.QueryResult = nil
-		}
-		m.QueryResult = &TableState{ // perform query
-			Database: m.Table().Database,
-			Data:     make(map[string]interface{}),
-		}
-		m.QueryData = &UIData{}
-
-		firstword := strings.ToLower(strings.Split(input, " ")[0])
-		if exec := firstword == "input" ||
-			firstword == "update" ||
-			firstword == "delete"; exec {
-			m.QueryData = nil
-			m.QueryResult = nil
-			populateUndo(m)
-			_, err := m.DefaultTable.Database.GetDatabaseReference().Exec(input)
-			var c *sql.Rows
-			defer func() {
-				if c != nil {
-					c.Close()
-				}
-			}()
-			err = SetModel(m, c, m.DefaultTable.Database.GetDatabaseReference())
-			if err != nil {
-				m.DisplayMessage(fmt.Sprintf("%v", err))
-			}
-			ExitToDefaultView(m)
-		} else { // query
-			c, err := m.QueryResult.Database.GetDatabaseReference().Query(input)
-			defer func() {
-				if c != nil {
-					c.Close()
-				}
-			}()
-			if err != nil {
-				m.QueryResult = nil
-				m.QueryData = nil
-				ExitToDefaultView(m)
-				m.DisplayMessage(fmt.Sprintf("%v", err))
-				return true
-			}
-
-			i := 0
-
-			m.QueryData.TableHeaders = make(map[string][]string)
-			m.QueryData.TableIndexMap = make(map[int]string)
-			m.QueryData.TableSlices = make(map[string][]interface{})
-			m.QueryData.TableHeadersSlice = []string{}
-
-			PopulateDataForResult(m, c, &i, QueryResultsTableName)
-			ExitToDefaultView(m)
-			m.UI.EditModeEnabled = false
-			m.UI.CurrentTable = 1
-			m.Data().EditTextBuffer = ""
-			m.FormatInput.Model.SetValue("")
-		}
-		return true
+func handleSQLMode(m *TuiModel, input string) {
+	if m.QueryResult != nil {
+		m.QueryResult = nil
 	}
+	m.QueryResult = &TableState{ // perform query
+		Database: m.Table().Database,
+		Data:     make(map[string]interface{}),
+	}
+	m.QueryData = &UIData{}
 
-	return false
+	firstword := strings.ToLower(strings.Split(input, " ")[0])
+	if exec := firstword == "update" ||
+		firstword == "delete" ||
+		firstword == "insert"; exec {
+		m.QueryData = nil
+		m.QueryResult = nil
+		populateUndo(m)
+		_, err := m.DefaultTable.Database.GetDatabaseReference().Exec(input)
+		if err != nil {
+			ExitToDefaultView(m)
+			m.DisplayMessage(fmt.Sprintf("%v", err))
+			return
+		}
+		var c *sql.Rows
+		defer func() {
+			if c != nil {
+				c.Close()
+			}
+		}()
+		err = m.SetModel(c, m.DefaultTable.Database.GetDatabaseReference())
+		if err != nil {
+			m.DisplayMessage(fmt.Sprintf("%v", err))
+		} else {
+			ExitToDefaultView(m)
+		}
+	} else { // query
+		c, err := m.QueryResult.Database.GetDatabaseReference().Query(input)
+		defer func() {
+			if c != nil {
+				c.Close()
+			}
+		}()
+		if err != nil {
+			m.QueryResult = nil
+			m.QueryData = nil
+			ExitToDefaultView(m)
+			m.DisplayMessage(fmt.Sprintf("%v", err))
+			return
+		}
+
+		i := 0
+
+		m.QueryData.TableHeaders = make(map[string][]string)
+		m.QueryData.TableIndexMap = make(map[int]string)
+		m.QueryData.TableSlices = make(map[string][]interface{})
+		m.QueryData.TableHeadersSlice = []string{}
+
+		m.PopulateDataForResult(c, &i, QueryResultsTableName)
+		ExitToDefaultView(m)
+		m.UI.EditModeEnabled = false
+		m.UI.CurrentTable = 1
+		m.Data().EditTextBuffer = ""
+		m.FormatInput.Model.SetValue("")
+	}
 }
 
 func populateUndo(m *TuiModel) (old string, new string) {

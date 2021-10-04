@@ -2,10 +2,24 @@ package viewer
 
 import (
 	"database/sql"
+	"encoding/json"
+	"fmt"
+	tea "github.com/charmbracelet/bubbletea"
+	"os"
 	"strings"
 	"termdbms/database"
+	"termdbms/list"
 	"termdbms/tuiutil"
 )
+
+func (m *TuiModel) WriteMessage(s string) {
+	if Message == "" {
+		Message = s
+		MIP = true
+		go Program.Send(tea.KeyMsg{}) // trigger update
+		go Program.Send(tea.KeyMsg{}) // trigger update for sure hack gross but w/e
+	}
+}
 
 func (m *TuiModel) CopyMap() (to map[string]interface{}) {
 	from := m.Table().Data
@@ -78,13 +92,34 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 		FormatInput: LineEdit{
 			Model: tuiutil.NewModel(),
 		},
+		Clipboard: []list.Item{},
 	}
 	m.FormatInput.Model.Prompt = ""
+
+	snippetsFile := fmt.Sprintf("%s/%s", HiddenTmpDirectoryName, SQLSnippetsFile)
+
+	exists, _ := Exists(snippetsFile)
+	if exists {
+		contents, _ := os.ReadFile(snippetsFile)
+		var c []SQLSnippet
+		json.Unmarshal(contents, &c)
+		for _, v := range c {
+			m.Clipboard = append(m.Clipboard, v)
+		}
+	}
+
+	m.ClipboardList = list.NewModel(m.Clipboard, itemDelegate{}, 0, 0)
+
+	m.ClipboardList.Title = "SQL Snippets"
+	m.ClipboardList.SetFilteringEnabled(true)
+	m.ClipboardList.SetShowPagination(true)
+	m.ClipboardList.SetShowTitle(true)
+
 	return m
 }
 
 // SetModel creates a model to be used by bubbletea using some golang wizardry
-func SetModel(m *TuiModel, c *sql.Rows, db *sql.DB) error {
+func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) error {
 	var err error
 
 	indexMap := 0
@@ -116,7 +151,7 @@ func SetModel(m *TuiModel, c *sql.Rows, db *sql.DB) error {
 			panic(err)
 		}
 
-		PopulateDataForResult(m, c, &indexMap, schemaName)
+		m.PopulateDataForResult(c, &indexMap, schemaName)
 	}
 
 	// set the first table to be initial view
@@ -125,7 +160,7 @@ func SetModel(m *TuiModel, c *sql.Rows, db *sql.DB) error {
 	return nil
 }
 
-func PopulateDataForResult(m *TuiModel, c *sql.Rows, indexMap *int, schemaName string) {
+func (m *TuiModel) PopulateDataForResult(c *sql.Rows, indexMap *int, schemaName string) {
 	columnNames, _ := c.Columns()
 	columnValues := make(map[string][]interface{})
 
@@ -160,7 +195,7 @@ func PopulateDataForResult(m *TuiModel, c *sql.Rows, indexMap *int, schemaName s
 	m.Data().TableIndexMap[*indexMap] = schemaName
 }
 
-func SwapTableValues(m *TuiModel, f, t *TableState) {
+func (m *TuiModel) SwapTableValues(f, t *TableState) {
 	from := &f.Data
 	to := &t.Data
 	for k, v := range *from {

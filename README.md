@@ -30,7 +30,8 @@
 #### Other Features
 
 - Run SQL queries and display the results!
-- Update, delete, or insert with SQL, with undo/redo supported
+- Save SQL queries to a clipboard!
+- Update, delete, or insert with SQL, with undo/redo supported for SQLite
 - Automatic JSON formatting in selection/format mode
 - Edit multi-line text with vim-like controls
 - Undo/Redo of changes (SQLite only)
@@ -39,10 +40,9 @@
 
 #### Roadmap
 
-- Add/remove rows/columns/cells
-- Filter tables by fuzzy search
+- Filter tables by fuzzy search with context menu
 - MySQL/ PostgreSQL support
-- Line wrapping / horizontal scroll for format/SQL mode
+- Line wrapping / horizontal scroll for format/SQL mode.
 
 #### 
 <details>
@@ -75,6 +75,7 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
  - Mouse down does not work in Windows Terminal, but it does work in Command Prompt.
  - Tab in format mode does not work at the end of lines or empty lines.
  - Line wrapping is not yet implemented, so text in format mode should be less than the maximum number of columns available per line for best use. It's in the works!
+ - Weird combinations of newlines + tabs can break stuff. Tabs at beginning of line and mid-line works in a stable manner.
 
 ##### Help:
     -p / database path (absolute)
@@ -117,6 +118,7 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
     [:new] opens current cell with a blank buffer
     [:edit] opens current cell in format mode
     [:sql] opens blank buffer for creating an SQL statement
+    [:clip] to open clipboard of SQL queries. [/] to filter, [ENTER] to select.
     [HOME] to set cursor to end of the text
     [END] to set cursor to the end of the text
 ###### FORMAT MODE (for editing lines of text)
@@ -131,6 +133,7 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
     [ESC] to move between top control bar and text buffer
     [:q] to quit out of statement
     [:exec] to execute statement. Errors will be displayed in full screen view.
+    [:stow <NAME>] to create a snippet for the clipboard with an optional name. A random number will be used if no name is specified.
 ###### QUERY MODE (specifically when viewing query results)
     [:d] to reset table data back to original view
     [:sql] to query original database again

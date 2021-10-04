@@ -17,11 +17,18 @@ func (db *SQLite) Update(q *Update) {
 	values := make([]interface{}, len(columnOrder))
 	updateValues := q.GetValues()
 	for i, v := range columnOrder {
+		var u interface{}
 		if i == 0 {
-			values[i] = q.Update
+			u = q.Update
 		} else {
-			values[i] = updateValues[v]
+			u = updateValues[v]
 		}
+
+		if u == nil {
+			u = "NULL"
+		}
+
+		values[i] = u
 	}
 	tx, err := db.GetDatabaseReference().Begin()
 	if err != nil {

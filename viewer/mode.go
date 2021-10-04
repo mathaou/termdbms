@@ -220,9 +220,7 @@ func InsertCharacter(m *TuiModel, newlineOrTab string) {
 	yOffset := Max(m.Viewport.YOffset, 0)
 	cursor := m.Format.RunningOffsets[m.Format.CursorY+yOffset] + m.Format.CursorX
 	runes := []rune(m.Data().EditTextBuffer)
-	if runes[Min(cursor, len(runes)-1)] == '\n' && newlineOrTab == "\t" {
-		return
-	}
+
 	min := Max(cursor, 0)
 	min = Min(min, len(m.Data().EditTextBuffer))
 	first := runes[:min]

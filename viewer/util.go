@@ -19,6 +19,7 @@ import (
 
 const (
 	HiddenTmpDirectoryName = ".termdbms"
+	SQLSnippetsFile = "snippets.termdbms"
 )
 
 func TruncateIfApplicable(m *TuiModel, conv string) (s string) {

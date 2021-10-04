@@ -14,6 +14,8 @@ import (
 var (
 	Program          *tea.Program
 	FormatModeOffset int
+	TUIWidth         int
+	TUIHeight        int
 )
 
 func GetOffsetForLineNumber(a int) int {
@@ -217,6 +219,10 @@ func DisplayFormatText(m *TuiModel) string {
 	return ret
 }
 
+func ShowClipboard(m *TuiModel) string {
+	return m.ClipboardList.View()
+}
+
 // DisplaySelection does that or writes it to a file if the selection is over a limit
 func DisplaySelection(m *TuiModel) string {
 	col := m.GetColumnData()
@@ -267,7 +273,7 @@ func DisplaySelection(m *TuiModel) string {
 		lines = append(lines, "")
 	}
 
-	prettyPrint = base.Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+	prettyPrint = " " + base.Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
 
 	return wordwrap.String(prettyPrint, m.Viewport.Width)
 }

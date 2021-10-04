@@ -10,6 +10,9 @@ var maxHeaders int
 
 // AssembleTable shows either the selection text or the table
 func AssembleTable(m *TuiModel) string {
+	if m.UI.ShowClipboard {
+		return ShowClipboard(m)
+	}
 	if m.UI.HelpDisplay {
 		return GetHelpText()
 	}
@@ -31,10 +34,18 @@ func (m *TuiModel) NumHeaders() int {
 		return 1
 	}
 
-	maxHeaders = m.Viewport.Width / 20
+	maxHeaders = 7
 
-	if l > maxHeaders {
-		return 4
+	if l > maxHeaders { // this just looked the best after some trial and error
+		if l%5 == 0 {
+			return 5
+		} else if l%4 == 0 {
+			return 4
+		} else if l%3 == 0 {
+			return 3
+		} else {
+			return 6 // primes and shiiiii
+		}
 	}
 
 	return l
@@ -43,7 +54,7 @@ func (m *TuiModel) NumHeaders() int {
 // CellWidth gets the current cell width for schema
 func (m *TuiModel) CellWidth() int {
 	h := m.NumHeaders()
-	return m.Viewport.Width / h
+	return m.Viewport.Width/h + 2
 }
 
 // GetBaseStyle returns a new style that is used everywhere
@@ -91,11 +102,16 @@ func (m *TuiModel) GetSchemaName() string {
 
 // GetHeaders does just that for the current schema
 func (m *TuiModel) GetHeaders() []string {
-	return m.Data().TableHeaders[m.GetSchemaName()]
+	schema := m.GetSchemaName()
+	d := m.Data()
+	return d.TableHeaders[schema]
 }
 
 func (m *TuiModel) SetViewSlices() {
 	d := m.Data()
+	if m.Viewport.Height < 0 {
+		return
+	}
 	if m.UI.FormatModeEnabled {
 		var slices []*string
 		for i := 0; i < m.Viewport.Height; i++ {
@@ -152,7 +168,9 @@ func (m *TuiModel) GetSchemaData() map[string][]interface{} {
 
 func (m *TuiModel) GetSelectedColumnName() string {
 	col := m.GetColumn()
-	return m.GetHeaders()[Min(m.NumHeaders()-1, col)]
+	headers := m.GetHeaders()
+	index := Min(m.NumHeaders()-1, col)
+	return headers[index]
 }
 
 func (m *TuiModel) GetColumnData() []interface{} {
