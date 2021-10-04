@@ -292,4 +292,10 @@ func init() {
 		ScrollDown(m)
 		return nil
 	}
+	GlobalCommands["?"] = func(m *TuiModel) tea.Cmd {
+		m.UI.HelpDisplay = true
+		help := GetHelpText()
+		m.DisplayMessage(help)
+		return nil
+	}
 }
