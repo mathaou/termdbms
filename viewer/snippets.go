@@ -28,14 +28,14 @@ func (s SQLSnippet) FilterValue() string {
 
 type itemDelegate struct{}
 
-func (d itemDelegate) Height() int  { return 2 }
+func (d itemDelegate) Height() int  { return 1 }
 func (d itemDelegate) Spacing() int { return 0 }
 func (d itemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
 	return nil
 }
 
 func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	var localStyle lipgloss.Style
+	localStyle := style.Copy()
 	i, ok := listItem.(SQLSnippet)
 	if !ok {
 		return
@@ -44,30 +44,31 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	digits := len(fmt.Sprintf("%d", len(m.Items()))) + 1
 	incomingDigits := len(fmt.Sprintf("%d", index+1))
 
-	if tuiutil.Ascii {
+	if !tuiutil.Ascii {
 		localStyle = style.Copy().Faint(true)
 	}
 
-	str := fmt.Sprintf("%d) %s%s\n\t%s", index+1, strings.Repeat(" ", digits-incomingDigits), i.Title(),
-		localStyle.Render(i.Query[0:Min(TUIWidth - 10, len(i.Query) - 1)])) // padding + tab + padding
-	if tuiutil.Ascii {
-		localStyle = style.Copy().PaddingLeft(4)
-	}
+	str := fmt.Sprintf("%d) %s%s | ", index+1, strings.Repeat(" ", digits-incomingDigits),
+		i.Title())
+	query := localStyle.Render(i.Query[0:Min(TUIWidth - 10, Max(len(i.Query) - 1, len(i.Query) - 1 - len(str)))]) // padding + tab + padding
+	str += strings.ReplaceAll(query, "\n", "")
+
+	localStyle = style.Copy().PaddingLeft(4)
+
 	fn := localStyle.Render
 	if index == m.Index() {
 		fn = func(s string) string {
-			if tuiutil.Ascii {
-				localStyle = style.Copy().
-					Foreground(lipgloss.Color(tuiutil.HeaderTopForeground())).
-					PaddingLeft(2)
+			localStyle = style.Copy().
+				PaddingLeft(2)
+			if !tuiutil.Ascii {
+				localStyle = localStyle.
+					Foreground(lipgloss.Color(tuiutil.HeaderTopForeground()))
 			}
-			if tuiutil.Ascii {
-				s = style.Render(s)
-			}
+
 			return lipgloss.JoinHorizontal(lipgloss.Left,
 				localStyle.
 				Render("> "),
-				s)
+				style.Render(s))
 		}
 	}
 
