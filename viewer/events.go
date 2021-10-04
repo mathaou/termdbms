@@ -4,8 +4,6 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"strings"
-	"termdbms/database"
 	"termdbms/tuiutil"
 	"time"
 )
@@ -79,13 +77,11 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 	var (
 		cmd tea.Cmd
 	)
-
 	str := msg.String()
-	cw := m.CellWidth()
 
 	if m.UI.EditModeEnabled { // handle edit mode
 		HandleEditMode(m, str)
-		return cmd
+		return nil
 	} else if m.UI.FormatModeEnabled {
 		if str == "esc" { // cycle focus
 			if m.TextInput.Model.Focused() {
@@ -104,232 +100,14 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 			HandleFormatMode(m, str)
 		}
 
-		return cmd
+		return nil
 	}
 
-	// GLOBAL COMMANDS
-	switch str {
-	case "t":
-		tuiutil.SelectedTheme = (tuiutil.SelectedTheme + 1) % len(tuiutil.ValidThemes)
-		SetStyles()
-		break
-	case "pgdown":
-		for i := 0; i < m.Viewport.Height; i++ {
-			ScrollDown(m)
+	for k, _ := range GlobalCommands {
+		if str == k {
+			return GlobalCommands[str](m)
 		}
-		break
-	case "pgup":
-		for i := 0; i < m.Viewport.Height; i++ {
-			ScrollUp(m)
-		}
-		break
-	case "r": // redo
-		if len(m.RedoStack) > 0 && m.QueryResult == nil && m.QueryData == nil { // do this after you get undo working, basically just the same thing reversed
-			// handle undo
-			deepCopy := m.CopyMap()
-			// THE GLOBALIST TAKEOVER
-			deepState := TableState{
-				Database: &database.SQLite{
-					FileName: m.Table().Database.GetFileName(),
-					Database: nil,
-				}, // placeholder for now while testing database copy
-				Data: deepCopy,
-			}
-			m.UndoStack = append(m.UndoStack, deepState)
-			// handle redo
-			from := m.RedoStack[len(m.RedoStack)-1]
-			to := m.Table()
-			SwapTableValues(m, &from, to)
-			m.Table().Database.CloseDatabaseReference()
-			m.Table().Database.SetDatabaseReference(from.Database.GetFileName())
-
-			m.RedoStack = m.RedoStack[0 : len(m.RedoStack)-1] // pop
-		}
-		break
-	case "u": // undo
-		if len(m.UndoStack) > 0 && m.QueryResult == nil && m.QueryData == nil {
-			// handle redo
-			deepCopy := m.CopyMap()
-			t := m.Table()
-			// THE GLOBALIST TAKEOVER
-			deepState := TableState{
-				Database: &database.SQLite{
-					FileName: t.Database.GetFileName(),
-					Database: nil,
-				}, // placeholder for now while testing database copy
-				Data: deepCopy,
-			}
-			m.RedoStack = append(m.RedoStack, deepState)
-			// handle undo
-			from := m.UndoStack[len(m.UndoStack)-1]
-			to := t
-			SwapTableValues(m, &from, to)
-			t.Database.CloseDatabaseReference()
-			t.Database.SetDatabaseReference(from.Database.GetFileName())
-
-			m.UndoStack = m.UndoStack[0 : len(m.UndoStack)-1] // pop
-		}
-		break
-	case ":": // edit mode or format mode depending on string length
-		if m.QueryData != nil || m.QueryResult != nil { // editing not allowed in query view mode
-			break
-		}
-		m.UI.EditModeEnabled = true
-		raw, _, _ := m.GetSelectedOption()
-		if raw == nil {
-			m.UI.EditModeEnabled = false
-			break
-		}
-
-		str := GetStringRepresentationOfInterface(*raw)
-		// so if the selected text is wider than Viewport width or if it has newlines do format mode
-		if lipgloss.Width(str+m.TextInput.Model.Prompt) > m.Viewport.Width ||
-			strings.Count(str, "\n") > 0 { // enter format view
-			PrepareFormatMode(m)
-			cmd = m.FormatInput.Model.FocusCommand()       // get focus
-			m.Scroll.PreScrollYOffset = m.Viewport.YOffset // store scrolling so state can be restored on exit
-			m.Scroll.PreScrollYPosition = m.MouseData.Y
-			d := m.Data()
-			if conv, err := FormatJson(str); err == nil { // if json prettify
-				d.EditTextBuffer = conv
-			} else {
-				d.EditTextBuffer = str
-			}
-			m.FormatInput.Original = raw // pointer to original data
-			m.Format.Text = GetFormattedTextBuffer(m)
-			m.SetViewSlices()
-			m.FormatInput.Model.SetCursor(0)
-		} else { // otherwise, edit normally up top
-			m.TextInput.Model.SetValue(str)
-			m.FormatInput.Model.Focus = false
-			m.TextInput.Model.Focus = true
-		}
-		break
-	case "p":
-		if m.UI.RenderSelection {
-			WriteTextFile(m, m.Data().EditTextBuffer)
-		} else if m.QueryData != nil || m.QueryResult != nil {
-			WriteCSV(m)
-		}
-		break
-	case "c":
-		ToggleColumn(m)
-		break
-	case "b":
-		m.UI.BorderToggle = !m.UI.BorderToggle
-		break
-	case "up", "k": // toggle next schema + 1
-		if m.UI.CurrentTable == len(m.Data().TableIndexMap) {
-			m.UI.CurrentTable = 1
-		} else {
-			m.UI.CurrentTable++
-		}
-
-		// fix spacing and whatnot
-		m.TableStyle = m.TableStyle.Width(cw)
-		m.MouseData.Y = HeaderHeight
-		m.MouseData.X = 0
-		m.Viewport.YOffset = 0
-		m.Scroll.ScrollXOffset = 0
-		break
-	case "down", "j": // toggle previous schema - 1
-		if m.UI.CurrentTable == 1 {
-			m.UI.CurrentTable = len(m.Data().TableIndexMap)
-		} else {
-			m.UI.CurrentTable--
-		}
-
-		// fix spacing and whatnot
-		m.TableStyle = m.TableStyle.Width(cw)
-		m.MouseData.Y = HeaderHeight
-		m.MouseData.X = 0
-		m.Viewport.YOffset = 0
-		m.Scroll.ScrollXOffset = 0
-		break
-	case "right", "l":
-		headers := m.GetHeaders()
-		headersLen := len(headers)
-		if headersLen > maxHeaders && m.Scroll.ScrollXOffset <= headersLen-maxHeaders {
-			m.Scroll.ScrollXOffset++
-		}
-		break
-	case "left", "h":
-		if m.Scroll.ScrollXOffset > 0 {
-			m.Scroll.ScrollXOffset--
-		}
-		break
-	case "s": // manual keyboard control for row ++
-		max := len(m.GetSchemaData()[m.GetHeaders()[m.GetColumn()]])
-
-		if m.MouseData.Y-HeaderHeight+m.Viewport.YOffset < max-1 {
-			m.MouseData.Y++
-			ceiling := m.Viewport.Height + HeaderHeight - 1
-			tuiutil.Clamp(m.MouseData.Y, m.MouseData.Y+1, ceiling)
-			if m.MouseData.Y > ceiling {
-				ScrollDown(m)
-				m.MouseData.Y = ceiling
-			}
-		}
-
-		break
-	case "w": // manual keyboard control for row --
-		pre := m.MouseData.Y
-		if m.Viewport.YOffset > 0 && m.MouseData.Y == HeaderHeight {
-			ScrollUp(m)
-			m.MouseData.Y = pre
-		} else if m.MouseData.Y > HeaderHeight {
-			m.MouseData.Y--
-		}
-		break
-	case "d": // manual keyboard control for column ++
-		col := m.GetColumn()
-		cols := len(m.Data().TableHeadersSlice) - 1
-		if (m.MouseData.X-m.Viewport.Width) <= cw && m.GetColumn() < cols { // within tolerances
-			m.MouseData.X += cw
-		} else if col == cols {
-			go Program.Send(tea.KeyMsg{
-				Type: tea.KeyRight,
-				Alt:  false,
-			})
-		}
-		break
-	case "a": // manual keyboard control for column --
-		if m.MouseData.X-cw >= 0 {
-			m.MouseData.X -= cw
-		} else if m.GetColumn() == 0 {
-			go Program.Send(tea.KeyMsg{
-				Type: tea.KeyLeft,
-				Alt:  false,
-			})
-		}
-		break
-	case "enter": // manual trigger for select highlighted cell
-		if !m.UI.EditModeEnabled {
-			SelectOption(m)
-		}
-		break
-	case "m": // scroll up manually
-		ScrollUp(m)
-		break
-	case "n": // scroll down manually
-		ScrollDown(m)
-		break
-	case "esc": // exit full screen cell value view, also enabled edit mode
-		m.TextInput.Model.SetValue("")
-		if !m.UI.RenderSelection &&
-			!m.UI.HelpDisplay {
-			m.UI.EditModeEnabled = true
-			break
-		}
-		m.UI.RenderSelection = false
-		m.UI.HelpDisplay = false
-		m.Data().EditTextBuffer = ""
-		cmd = m.TextInput.Model.FocusCommand()
-		m.UI.ExpandColumn = -1
-		m.MouseData.Y = m.Scroll.PreScrollYPosition
-		m.Viewport.YOffset = m.Scroll.PreScrollYOffset
-		break
 	}
 
-	return cmd
+	return nil
 }

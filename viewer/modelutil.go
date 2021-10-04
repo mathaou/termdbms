@@ -107,6 +107,7 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 	return m
 }
 
+// TODO make this a struct func
 // SetModel creates a model to be used by bubbletea using some golang wizardry
 func SetModel(m *TuiModel, c *sql.Rows, db *sql.DB) error {
 	var err error
@@ -149,6 +150,7 @@ func SetModel(m *TuiModel, c *sql.Rows, db *sql.DB) error {
 	return nil
 }
 
+// TODO make this a struct func
 func PopulateDataForResult(m *TuiModel, c *sql.Rows, indexMap *int, schemaName string) {
 	columnNames, _ := c.Columns()
 	columnValues := make(map[string][]interface{})
@@ -184,6 +186,7 @@ func PopulateDataForResult(m *TuiModel, c *sql.Rows, indexMap *int, schemaName s
 	m.Data().TableIndexMap[*indexMap] = schemaName
 }
 
+// TODO make this a struct func
 func SwapTableValues(m *TuiModel, f, t *TableState) {
 	from := &f.Data
 	to := &t.Data
