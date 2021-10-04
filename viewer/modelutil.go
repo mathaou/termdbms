@@ -4,18 +4,20 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"os"
 	"strings"
 	"termdbms/database"
+	"termdbms/list"
 	"termdbms/tuiutil"
 )
+
 func (m *TuiModel) WriteMessage(s string) {
 	if Message == "" {
 		Message = s
 		MIP = true
 		go Program.Send(tea.KeyMsg{}) // trigger update
+		go Program.Send(tea.KeyMsg{}) // trigger update for sure hack gross but w/e
 	}
 }
 
@@ -108,9 +110,10 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 
 	m.ClipboardList = list.NewModel(m.Clipboard, itemDelegate{}, 0, 0)
 
+	m.ClipboardList.Title = "SQL Snippets"
 	m.ClipboardList.SetFilteringEnabled(true)
 	m.ClipboardList.SetShowPagination(true)
-	m.ClipboardList.SetShowTitle(false)
+	m.ClipboardList.SetShowTitle(true)
 
 	return m
 }

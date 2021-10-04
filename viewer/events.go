@@ -47,6 +47,8 @@ func HandleWindowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 
 		m.ClipboardList.SetWidth(width)
 		m.ClipboardList.SetHeight(height)
+		TUIWidth = width
+		TUIHeight = height
 		m.Viewport.YPosition = HeaderHeight
 		m.Viewport.HighPerformanceRendering = true
 		m.Ready = true

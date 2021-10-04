@@ -104,7 +104,6 @@ func main() {
 		os.Mkdir(HiddenTmpDirectoryName, 0777)
 	}
 
-	// steps
 	// make a copy of the database file, load this
 	dst, _, _ := CopyFile(path)
 	// keep a track of the original file name

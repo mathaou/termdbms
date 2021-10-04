@@ -1,11 +1,11 @@
 package viewer
 
 import (
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"termdbms/database"
+	"termdbms/list"
 )
 
 type SQLSnippet struct {

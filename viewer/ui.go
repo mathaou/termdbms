@@ -14,6 +14,8 @@ import (
 var (
 	Program          *tea.Program
 	FormatModeOffset int
+	TUIWidth         int
+	TUIHeight        int
 )
 
 func GetOffsetForLineNumber(a int) int {

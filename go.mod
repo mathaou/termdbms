@@ -11,5 +11,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.13
 	github.com/muesli/reflow v0.3.0
 	github.com/muesli/termenv v0.9.0
+	github.com/sahilm/fuzzy v0.1.0 // indirect
 	modernc.org/sqlite v1.13.0
 )

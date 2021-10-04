@@ -129,6 +129,9 @@ func EditEnter(m *TuiModel) {
 			return
 		} else if input == ":clip" {
 			ExitToDefaultView(m)
+			if len( m.ClipboardList.Items()) == 0 {
+				return
+			}
 			m.UI.ShowClipboard = true
 			return
 		}
@@ -174,21 +177,25 @@ func EditEnter(m *TuiModel) {
 		if i == ":exec" {
 			handleSQLMode(m, input)
 		} else if strings.HasPrefix(i, ":stow") {
-			split := strings.Split(i, " ")
-			rand.Seed(time.Now().UnixNano())
-			r := rand.Int()
-			title := fmt.Sprintf("%d", r) // if no title given then just call it random string
-			if len(split) == 2 {
-				title = split[1]
+			if len(input) > 0 {
+				split := strings.Split(i, " ")
+				rand.Seed(time.Now().UnixNano())
+				r := rand.Int()
+				title := fmt.Sprintf("%d", r) // if no title given then just call it random string
+				if len(split) == 2 {
+					title = split[1]
+				}
+				m.Clipboard = append(m.Clipboard, SQLSnippet{
+					Query: input,
+					Name: title,
+				})
+				b, _ := json.Marshal(m.Clipboard)
+				snippetsFile := fmt.Sprintf("%s/%s", HiddenTmpDirectoryName, SQLSnippetsFile)
+				f, _ := os.OpenFile(snippetsFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0775)
+				f.Write(b)
+				f.Close()
+				m.WriteMessage(fmt.Sprintf("Wrote SQL snippet %s to %s. Total count is %d", title, snippetsFile, len(m.ClipboardList.Items()) + 1))
 			}
-			m.Clipboard = append(m.Clipboard, SQLSnippet{
-				Query: input,
-				Name: title,
-			})
-			b, _ := json.Marshal(m.Clipboard)
-			f, _ := os.OpenFile(fmt.Sprintf("%s/%s", HiddenTmpDirectoryName, SQLSnippetsFile), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0775)
-			f.Write(b)
-			f.Close()
 			m.TextInput.Model.SetValue("")
 		}
 		return

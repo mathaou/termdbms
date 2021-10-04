@@ -2,9 +2,9 @@ package viewer
 
 import (
 	"fmt"
-	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"termdbms/list"
 	"termdbms/tuiutil"
 )
 
@@ -74,6 +74,9 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := message.(type) {
+	case list.FilterMatchesMessage:
+		m.ClipboardList, command = m.ClipboardList.Update(msg)
+		break
 	case tea.MouseMsg:
 		HandleMouseEvents(&m, &msg)
 		m.SetViewSlices()
@@ -86,10 +89,9 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		break
 	case tea.KeyMsg:
 		str := msg.String()
-		// TODO: get clipboard working - try getting code locally so it can be debugged easier and changed - rewrite fuzzy find logic
 		if m.UI.ShowClipboard {
 			state := m.ClipboardList.FilterState()
-			if (str == "q" || str == "esc" || str == "enter") && state == list.Unfiltered {
+			if (str == "q" || str == "esc" || str == "enter") && state != list.Filtering {
 				switch str {
 				case "enter":
 					i, ok := m.ClipboardList.SelectedItem().(SQLSnippet)
@@ -102,12 +104,14 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 				default:
 					ExitToDefaultView(&m)
 				}
+				m.ClipboardList.ResetFilter()
 				return m, nil
 			}
 
 			m.ClipboardList, command = m.ClipboardList.Update(msg)
 			break
 		}
+
 		// when fullscreen selection viewing is in session, don't allow UI manipulation other than quit or exit
 		s := msg.String()
 		invalidRenderCommand := m.UI.RenderSelection &&
