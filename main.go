@@ -29,6 +29,7 @@ const (
 )
 
 var (
+	debug        bool
 	path         string
 	databaseType string
 	theme        string
@@ -37,35 +38,32 @@ var (
 )
 
 func main() {
-	debug := debugPath != ""
-	// if not debug, then this section parses and validates cmd line arguments
-	if !debug {
-		flag.Usage = func() {
-			help := GetHelpText()
-			lines := strings.Split(help, "\n")
-			for _, v := range lines {
-				println(v)
-			}
+	debug = debugPath != ""
+	flag.Usage = func() {
+		help := GetHelpText()
+		lines := strings.Split(help, "\n")
+		for _, v := range lines {
+			println(v)
 		}
-
-		argLength := len(os.Args[1:])
-		if argLength > 4 || argLength == 0 {
-			fmt.Printf("ERROR: Invalid number of arguments supplied: %d\n", argLength)
-			flag.Usage()
-			os.Exit(1)
-		}
-
-		// flags declaration using flag package
-		flag.StringVar(&databaseType, "d", string(DatabaseSQLite), "Specifies the SQL driver to use. Defaults to SQLite.")
-		flag.StringVar(&path, "p", "", "Path to the database file.")
-		flag.StringVar(&theme, "t", "default", "sets the color theme of the app.")
-		flag.BoolVar(&help, "h", false, "Prints the help message.")
-		flag.BoolVar(&ascii, "a", false, "Denotes that the app should render with minimal styling to remove ANSI sequences.")
-
-		flag.Parse()
-
-		handleFlags()
 	}
+
+	argLength := len(os.Args[1:])
+	if (argLength > 4 || argLength == 0) && !debug {
+		fmt.Printf("ERROR: Invalid number of arguments supplied: %d\n", argLength)
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	// flags declaration using flag package
+	flag.StringVar(&databaseType, "d", string(DatabaseSQLite), "Specifies the SQL driver to use. Defaults to SQLite.")
+	flag.StringVar(&path, "p", "", "Path to the database file.")
+	flag.StringVar(&theme, "t", "default", "sets the color theme of the app.")
+	flag.BoolVar(&help, "h", false, "Prints the help message.")
+	flag.BoolVar(&ascii, "a", false, "Denotes that the app should render with minimal styling to remove ANSI sequences.")
+
+	flag.Parse()
+
+	handleFlags()
 
 	var c *sql.Rows
 	defer func() {
@@ -121,7 +119,7 @@ func main() {
 	m := GetNewModel(dst, db)
 	InitialModel = &m
 	InitialModel.InitialFileName = path
-	err := SetModel(InitialModel, c, db)
+	err := InitialModel.SetModel(c, db)
 	if err != nil {
 		fmt.Printf("%v", err)
 		os.Exit(1)
@@ -139,7 +137,7 @@ func main() {
 }
 
 func handleFlags() {
-	if path == "" {
+	if path == "" && !debug {
 		fmt.Printf("ERROR: no path for database.\n")
 		flag.Usage()
 		os.Exit(1)

@@ -5,11 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
 	"os"
 	"strings"
 	"termdbms/database"
 	"termdbms/tuiutil"
 )
+func (m *TuiModel) WriteMessage(s string) {
+	if Message == "" {
+		Message = s
+		MIP = true
+		go Program.Send(tea.KeyMsg{}) // trigger update
+	}
+}
 
 func (m *TuiModel) CopyMap() (to map[string]interface{}) {
 	from := m.Table().Data
@@ -107,9 +115,8 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 	return m
 }
 
-// TODO make this a struct func
 // SetModel creates a model to be used by bubbletea using some golang wizardry
-func SetModel(m *TuiModel, c *sql.Rows, db *sql.DB) error {
+func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) error {
 	var err error
 
 	indexMap := 0
@@ -141,7 +148,7 @@ func SetModel(m *TuiModel, c *sql.Rows, db *sql.DB) error {
 			panic(err)
 		}
 
-		PopulateDataForResult(m, c, &indexMap, schemaName)
+		m.PopulateDataForResult(c, &indexMap, schemaName)
 	}
 
 	// set the first table to be initial view
@@ -150,8 +157,7 @@ func SetModel(m *TuiModel, c *sql.Rows, db *sql.DB) error {
 	return nil
 }
 
-// TODO make this a struct func
-func PopulateDataForResult(m *TuiModel, c *sql.Rows, indexMap *int, schemaName string) {
+func (m *TuiModel) PopulateDataForResult(c *sql.Rows, indexMap *int, schemaName string) {
 	columnNames, _ := c.Columns()
 	columnValues := make(map[string][]interface{})
 
@@ -186,8 +192,7 @@ func PopulateDataForResult(m *TuiModel, c *sql.Rows, indexMap *int, schemaName s
 	m.Data().TableIndexMap[*indexMap] = schemaName
 }
 
-// TODO make this a struct func
-func SwapTableValues(m *TuiModel, f, t *TableState) {
+func (m *TuiModel) SwapTableValues(f, t *TableState) {
 	from := &f.Data
 	to := &t.Data
 	for k, v := range *from {

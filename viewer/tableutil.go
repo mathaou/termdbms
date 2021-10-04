@@ -109,6 +109,9 @@ func (m *TuiModel) GetHeaders() []string {
 
 func (m *TuiModel) SetViewSlices() {
 	d := m.Data()
+	if m.Viewport.Height < 0 {
+		return
+	}
 	if m.UI.FormatModeEnabled {
 		var slices []*string
 		for i := 0; i < m.Viewport.Height; i++ {

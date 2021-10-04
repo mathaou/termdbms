@@ -1,6 +1,7 @@
 package viewer
 
 import (
+	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"strings"
@@ -19,6 +20,8 @@ func init() {
 	GlobalCommands["t"] = func(m *TuiModel) tea.Cmd {
 		tuiutil.SelectedTheme = (tuiutil.SelectedTheme + 1) % len(tuiutil.ValidThemes)
 		SetStyles()
+		themeName := tuiutil.ValidThemes[tuiutil.SelectedTheme]
+		m.WriteMessage(fmt.Sprintf("Changed themes to %s", themeName))
 		return nil
 	}
 	GlobalCommands["pgdown"] = func(m *TuiModel) tea.Cmd {
@@ -51,7 +54,7 @@ func init() {
 			// handle redo
 			from := m.RedoStack[len(m.RedoStack)-1]
 			to := m.Table()
-			SwapTableValues(m, &from, to)
+			m.SwapTableValues(&from, to)
 			m.Table().Database.CloseDatabaseReference()
 			m.Table().Database.SetDatabaseReference(from.Database.GetFileName())
 
@@ -77,7 +80,7 @@ func init() {
 			// handle undo
 			from := m.UndoStack[len(m.UndoStack)-1]
 			to := t
-			SwapTableValues(m, &from, to)
+			m.SwapTableValues(&from, to)
 			t.Database.CloseDatabaseReference()
 			t.Database.SetDatabaseReference(from.Database.GetFileName())
 
@@ -128,11 +131,12 @@ func init() {
 	}
 	GlobalCommands["p"] = func(m *TuiModel) tea.Cmd {
 		if m.UI.RenderSelection {
-			WriteTextFile(m, m.Data().EditTextBuffer)
+			fn, _ := WriteTextFile(m, m.Data().EditTextBuffer)
+			m.WriteMessage(fmt.Sprintf("Wrote selection to %s", fn))
 		} else if m.QueryData != nil || m.QueryResult != nil {
 			WriteCSV(m)
 		}
-
+		go Program.Send(tea.KeyMsg{})
 		return nil
 	}
 	GlobalCommands["c"] = func(m *TuiModel) tea.Cmd {
@@ -226,10 +230,12 @@ func init() {
 		if (m.MouseData.X-m.Viewport.Width) <= cw && m.GetColumn() < cols { // within tolerances
 			m.MouseData.X += cw
 		} else if col == cols {
-			go Program.Send(tea.KeyMsg{
-				Type: tea.KeyRight,
-				Alt:  false,
-			})
+			return func() tea.Msg {
+				return tea.KeyMsg{
+					Type: tea.KeyRight,
+					Alt:  false,
+				}
+			}
 		}
 
 		return nil
@@ -239,10 +245,12 @@ func init() {
 		if m.MouseData.X-cw >= 0 {
 			m.MouseData.X -= cw
 		} else if m.GetColumn() == 0 {
-			go Program.Send(tea.KeyMsg{
-				Type: tea.KeyLeft,
-				Alt:  false,
-			})
+			return func() tea.Msg {
+				return tea.KeyMsg{
+					Type: tea.KeyLeft,
+					Alt:  false,
+				}
+			}
 		}
 		return nil
 	}

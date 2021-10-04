@@ -2,10 +2,12 @@ package viewer
 
 import (
 	"fmt"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"strings"
 	"termdbms/database"
 	"termdbms/tuiutil"
+	"time"
 )
 
 type TableAssembly func(m *TuiModel, s *string, c *chan bool)
@@ -13,9 +15,15 @@ type TableAssembly func(m *TuiModel, s *string, c *chan bool)
 var (
 	HeaderAssembly TableAssembly
 	FooterAssembly TableAssembly
+	Message        string
+	mid            *string
+	MIP            bool
 )
 
 func init() {
+	tmp := ""
+	MIP = false
+	mid = &tmp
 	HeaderAssembly = func(m *TuiModel, s *string, done *chan bool) {
 		if m.UI.ShowClipboard {
 			*done <- true
@@ -96,14 +104,35 @@ func init() {
 			break
 		}
 
-		// TODO: get status messages appearing in the middle footer bit somehow for things like "saved selection"
-
 		gapSize := m.Viewport.Width - lipgloss.Width(footer) - lipgloss.Width(undoRedoInfo) - 2
+
+		if MIP {
+			MIP = false
+			if !tuiutil.Ascii {
+				Message = FooterStyle.Render(Message)
+			}
+			go func() {
+				newSize := gapSize-lipgloss.Width(Message)
+				if newSize < 1 {
+					newSize = 1
+				}
+				half := strings.Repeat("-", newSize/2)
+				if lipgloss.Width(Message) > gapSize {
+					Message = Message[0:gapSize-3] + "..."
+				}
+				*mid = half + Message + half
+				time.Sleep(time.Second * 5)
+				Message = ""
+				go Program.Send(tea.KeyMsg{})
+			}()
+		} else if Message == "" {
+			*mid = strings.Repeat("-", gapSize)
+		}
 		queryResultsFlag := "├"
 		if m.QueryData != nil || m.QueryResult != nil {
 			queryResultsFlag = "*"
 		}
-		footer = FooterStyle.Render(undoRedoInfo) + queryResultsFlag + strings.Repeat("─", gapSize) + "┤" + FooterStyle.Render(footer)
+		footer = FooterStyle.Render(undoRedoInfo) + queryResultsFlag + *mid + "┤" + FooterStyle.Render(footer)
 		*s = footer
 
 		*done <- true

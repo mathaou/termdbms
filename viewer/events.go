@@ -103,7 +103,7 @@ func HandleKeyboardEvents(m *TuiModel, msg *tea.KeyMsg) tea.Cmd {
 		return nil
 	}
 
-	for k, _ := range GlobalCommands {
+	for k := range GlobalCommands {
 		if str == k {
 			return GlobalCommands[str](m)
 		}

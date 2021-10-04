@@ -91,7 +91,7 @@ func EditEnter(m *TuiModel) {
 					c.Close()
 				}
 			}()
-			err := SetModel(m, c, m.DefaultTable.Database.GetDatabaseReference())
+			err := m.SetModel(c, m.DefaultTable.Database.GetDatabaseReference())
 			if err != nil {
 				m.DisplayMessage(fmt.Sprintf("%v", err))
 			}
@@ -99,7 +99,8 @@ func EditEnter(m *TuiModel) {
 			return
 		}
 		if m.QueryData != nil {
-			m.TextInput.Model.SetValue("Cannot manipulate database through UI while query results are being displayed.")
+			m.TextInput.Model.SetValue("")
+			m.WriteMessage("Cannot manipulate database through UI while query results are being displayed.")
 			return
 		}
 		if input == ":h" {
@@ -195,7 +196,7 @@ func EditEnter(m *TuiModel) {
 
 	old, n := populateUndo(m)
 	if old == n || n != m.DefaultTable.Database.GetFileName() {
-		panic(errors.New("ASdafadsf"))
+		panic(errors.New("could not get database file name"))
 	}
 
 	if _, err := FormatJson(input); err == nil { // if json uglify
@@ -250,7 +251,7 @@ func handleSQLMode(m *TuiModel, input string) {
 				c.Close()
 			}
 		}()
-		err = SetModel(m, c, m.DefaultTable.Database.GetDatabaseReference())
+		err = m.SetModel(c, m.DefaultTable.Database.GetDatabaseReference())
 		if err != nil {
 			m.DisplayMessage(fmt.Sprintf("%v", err))
 		} else {
@@ -278,7 +279,7 @@ func handleSQLMode(m *TuiModel, input string) {
 		m.QueryData.TableSlices = make(map[string][]interface{})
 		m.QueryData.TableHeadersSlice = []string{}
 
-		PopulateDataForResult(m, c, &i, QueryResultsTableName)
+		m.PopulateDataForResult(c, &i, QueryResultsTableName)
 		ExitToDefaultView(m)
 		m.UI.EditModeEnabled = false
 		m.UI.CurrentTable = 1
