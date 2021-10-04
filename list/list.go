@@ -1071,7 +1071,7 @@ func (m Model) paginationView() string {
 func (m Model) populatedView() string {
 	items := m.VisibleItems()
 
-	var b strings.Builder
+	b := strings.Builder{}
 
 	// Empty states
 	if len(items) == 0 {
@@ -1096,16 +1096,17 @@ func (m Model) populatedView() string {
 	// If there aren't enough items to fill up this page (always the last page)
 	// then we need to add some newlines to fill up the space where items would
 	// have been.
-	itemsOnPage := m.Paginator.ItemsOnPage(len(items))
-	if itemsOnPage < m.Paginator.PerPage {
-		n := (m.Paginator.PerPage - itemsOnPage) * (m.delegate.Height() + m.delegate.Spacing())
-		if len(items) == 0 {
-			n -= m.delegate.Height() - 1
-		}
-		fmt.Fprint(&b, strings.Repeat("\n", n))
-	}
+	//itemsOnPage := m.Paginator.ItemsOnPage(len(items))
+	//if itemsOnPage < m.Paginator.PerPage {
+	//	n := (m.Paginator.PerPage - itemsOnPage) * (m.delegate.Height() + m.delegate.Spacing())
+	//	if len(items) == 0 {
+	//		n -= m.delegate.Height() - 1
+	//	}
+	//	fmt.Fprint(&b, strings.Repeat("\n", n))
+	//}
+	ret := b.String()
 
-	return b.String()
+	return ret
 }
 
 func (m Model) helpView() string {
