@@ -72,8 +72,6 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
 #### Known Issues
  - Using termdbms over a serial connection works very poorly. This is due to ANSI sequences not being supported natively. Maybe putty/mobaxterm have settings to allow this?
  - The headers wig out sometimes in selection mode
- - Mouse down does not work in Windows Terminal, but it does work in Command Prompt.
- - Tab in format mode does not work at the end of lines or empty lines.
  - Line wrapping is not yet implemented, so text in format mode should be less than the maximum number of columns available per line for best use. It's in the works!
  - Weird combinations of newlines + tabs can break stuff. Tabs at beginning of line and mid-line works in a stable manner.
 
