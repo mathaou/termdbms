@@ -3,11 +3,11 @@ package viewer
 func GetHelpText() (help string) {
 	help = `
 ##### Help:
--p / database path (absolute)
--d / specifies which database driver to use (sqlite/mysql)
--a / enable ascii mode
--h / prints this message
--t / starts app with specific theme (default, nord, solarized)
+    -p / database path (absolute)
+    -d / specifies which database driver to use (sqlite/mysql)
+    -a / enable ascii mode
+    -h / prints this message
+    -t / starts app with specific theme (default, nord, solarized)
 ##### Controls:
 ###### MOUSE
 	Scroll up + down to navigate table/text
@@ -43,6 +43,7 @@ func GetHelpText() (help string) {
     [:new] opens current cell with a blank buffer
     [:edit] opens current cell in format mode
     [:sql] opens blank buffer for creating an SQL statement
+    [:clip] to open clipboard of SQL queries. [/] to filter, [ENTER] to select.
     [HOME] to set cursor to end of the text
     [END] to set cursor to the end of the text
 ###### FORMAT MODE (for editing lines of text)
@@ -57,6 +58,7 @@ func GetHelpText() (help string) {
     [ESC] to move between top control bar and text buffer
     [:q] to quit out of statement
     [:exec] to execute statement. Errors will be displayed in full screen view.
+    [:stow <NAME>] to create a snippet for the clipboard with an optional name. A random number will be used if no name is specified.
 ###### QUERY MODE (specifically when viewing query results)
     [:d] to reset table data back to original view
     [:sql] to query original database again`

@@ -94,7 +94,7 @@ func init() {
 			row = m.Format.CursorX
 			col = m.Format.CursorY + m.Viewport.YOffset
 		}
-		footer := fmt.Sprintf(" %d, %d", row, col)
+		footer := fmt.Sprintf(" %d, %d ", row, col)
 		undoRedoInfo := fmt.Sprintf(" undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
 		switch m.Table().Database.(type) {
 		case *database.SQLite:

@@ -1,9 +1,13 @@
 package viewer
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"os"
+	"termdbms/list"
 	"termdbms/tuiutil"
 	"time"
 )
@@ -27,7 +31,7 @@ func HandleMouseEvents(m *TuiModel, msg *tea.MouseMsg) {
 		}
 		break
 	default:
-		if !m.UI.RenderSelection && !m.UI.EditModeEnabled && !m.UI.HelpDisplay && !m.UI.FormatModeEnabled {
+		if !m.UI.RenderSelection && !m.UI.EditModeEnabled && !m.UI.FormatModeEnabled {
 			m.MouseData = tea.MouseEvent(*msg)
 		}
 		break
@@ -72,6 +76,36 @@ func HandleWindowSizeEvents(m *TuiModel, msg *tea.WindowSizeMsg) tea.Cmd {
 	}
 
 	return nil
+}
+
+func HandleClipboardEvents(m *TuiModel, str string, command *tea.Cmd, msg tea.Msg) {
+	state := m.ClipboardList.FilterState()
+	if (str == "q" || str == "esc" || str == "enter") && state != list.Filtering {
+		switch str {
+		case "enter":
+			i, ok := m.ClipboardList.SelectedItem().(SQLSnippet)
+			if ok {
+				ExitToDefaultView(m)
+				CreatePopulatedBuffer(m, nil, i.Query)
+				m.UI.SQLEdit = true
+			}
+			break
+		default:
+			ExitToDefaultView(m)
+		}
+		m.ClipboardList.ResetFilter()
+	} else {
+		tmpItems := len(m.ClipboardList.Items())
+		m.ClipboardList, *command = m.ClipboardList.Update(msg)
+		if len(m.ClipboardList.Items()) != tmpItems { // if item removed
+			m.Clipboard = m.ClipboardList.Items()
+			b, _ := json.Marshal(m.Clipboard)
+			snippetsFile := fmt.Sprintf("%s/%s", HiddenTmpDirectoryName, SQLSnippetsFile)
+			f, _ := os.OpenFile(snippetsFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0775)
+			f.Write(b)
+			f.Close()
+		}
+	}
 }
 
 // HandleKeyboardEvents does that

@@ -72,7 +72,6 @@ func GetNewModel(baseFileName string, db *sql.DB) TuiModel {
 		UI: UIState{
 			CanFormatScroll:   false,
 			RenderSelection:   false,
-			HelpDisplay:       false,
 			EditModeEnabled:   false,
 			FormatModeEnabled: false,
 			BorderToggle:      false,

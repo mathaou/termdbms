@@ -28,7 +28,6 @@ type TableState struct {
 type UIState struct {
 	CanFormatScroll   bool
 	RenderSelection   bool // render mode
-	HelpDisplay       bool // help display mode
 	EditModeEnabled   bool // edit mode
 	FormatModeEnabled bool
 	BorderToggle      bool

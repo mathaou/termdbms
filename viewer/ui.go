@@ -23,7 +23,7 @@ func GetOffsetForLineNumber(a int) int {
 }
 
 func SelectOption(m *TuiModel) {
-	if m.UI.RenderSelection || m.UI.HelpDisplay {
+	if m.UI.RenderSelection {
 		return
 	}
 

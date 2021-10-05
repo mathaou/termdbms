@@ -263,14 +263,12 @@ func init() {
 	}
 	GlobalCommands["esc"] = func(m *TuiModel) tea.Cmd {
 		m.TextInput.Model.SetValue("")
-		if !m.UI.RenderSelection &&
-			!m.UI.HelpDisplay {
+		if !m.UI.RenderSelection {
 			m.UI.EditModeEnabled = true
 			return nil
 		}
 
 		m.UI.RenderSelection = false
-		m.UI.HelpDisplay = false
 		m.Data().EditTextBuffer = ""
 		cmd := m.TextInput.Model.FocusCommand()
 		m.UI.ExpandColumn = -1
@@ -293,7 +291,6 @@ func init() {
 		return nil
 	}
 	GlobalCommands["?"] = func(m *TuiModel) tea.Cmd {
-		m.UI.HelpDisplay = true
 		help := GetHelpText()
 		m.DisplayMessage(help)
 		return nil

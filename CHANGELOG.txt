@@ -2,6 +2,14 @@
  - MYSQL Support
  - Database creation tools
 
+##[1.0-alpha]
+### Added
+ - Added ability to remove snippets
+ - Line wrapping + horizontal scroll!
+
+### Changed
+ - Unified help text display logic with selection display logic
+
 ##[0.7-alpha] - 10-4-2021
 ### Added
  - SQL querying
