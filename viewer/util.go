@@ -26,7 +26,7 @@ func TruncateIfApplicable(m *TuiModel, conv string) (s string) {
 	max := 0
 	viewportWidth := m.Viewport.Width
 	cellWidth := m.CellWidth()
-	if m.UI.RenderSelection || m.UI.ExpandColumn > -1 || m.UI.HelpDisplay {
+	if m.UI.RenderSelection || m.UI.ExpandColumn > -1 {
 		max = viewportWidth
 	} else {
 		max = cellWidth

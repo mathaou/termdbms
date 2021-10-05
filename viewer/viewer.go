@@ -90,25 +90,7 @@ func (m TuiModel) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		str := msg.String()
 		if m.UI.ShowClipboard {
-			state := m.ClipboardList.FilterState()
-			if (str == "q" || str == "esc" || str == "enter") && state != list.Filtering {
-				switch str {
-				case "enter":
-					i, ok := m.ClipboardList.SelectedItem().(SQLSnippet)
-					if ok {
-						ExitToDefaultView(&m)
-						CreatePopulatedBuffer(&m, nil, i.Query)
-						m.UI.SQLEdit = true
-					}
-					break
-				default:
-					ExitToDefaultView(&m)
-				}
-				m.ClipboardList.ResetFilter()
-				return m, nil
-			}
-
-			m.ClipboardList, command = m.ClipboardList.Update(msg)
+			HandleClipboardEvents(&m, str, &command, msg)
 			break
 		}
 
@@ -160,6 +142,7 @@ func (m TuiModel) View() string {
 
 	// this ensures that all 3 parts can be worked on concurrently(ish)
 	done := make(chan bool, 3)
+	defer close(done) // close
 
 	var footer, header, content string
 
@@ -168,6 +151,11 @@ func (m TuiModel) View() string {
 		*c = AssembleTable(&m)
 		done <- true
 	}(&content)
+
+	if m.UI.ShowClipboard {
+		<- done
+		return content
+	}
 
 	// header
 	go HeaderAssembly(&m, &header, &done)
@@ -178,12 +166,6 @@ func (m TuiModel) View() string {
 	<-done
 	<-done
 	<-done
-
-	close(done) // close
-
-	if m.UI.ShowClipboard {
-		return content
-	}
 
 	return fmt.Sprintf("%s\n%s\n%s", header, content, footer) // render
 }

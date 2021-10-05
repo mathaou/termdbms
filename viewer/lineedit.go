@@ -25,11 +25,11 @@ type LineEdit struct {
 }
 
 func ExitToDefaultView(m *TuiModel) {
+	m.UI.RenderSelection = false
 	m.UI.EditModeEnabled = false
 	m.UI.FormatModeEnabled = false
 	m.UI.SQLEdit = false
 	m.UI.ShowClipboard = false
-	m.UI.HelpDisplay = false
 	m.UI.CanFormatScroll = false
 	m.Format.CursorY = 0
 	m.Format.CursorX = 0
@@ -104,7 +104,6 @@ func EditEnter(m *TuiModel) {
 			return
 		}
 		if input == ":h" {
-			m.UI.HelpDisplay = true
 			m.DisplayMessage(GetHelpText())
 			return
 		} else if input == ":edit" {

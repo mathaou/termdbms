@@ -592,6 +592,7 @@ func (m Model) itemsAsFilterItems() filteredItems {
 func (m *Model) updateKeybindings() {
 	switch m.filterState {
 	case Filtering:
+		m.KeyMap.DeleteSelection.SetEnabled(false)
 		m.KeyMap.CursorUp.SetEnabled(false)
 		m.KeyMap.CursorDown.SetEnabled(false)
 		m.KeyMap.NextPage.SetEnabled(false)
@@ -607,6 +608,7 @@ func (m *Model) updateKeybindings() {
 		m.KeyMap.CloseFullHelp.SetEnabled(false)
 
 	default:
+		m.KeyMap.DeleteSelection.SetEnabled(true)
 		hasItems := m.items != nil
 		m.KeyMap.CursorUp.SetEnabled(hasItems)
 		m.KeyMap.CursorDown.SetEnabled(hasItems)
@@ -712,14 +714,31 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+var (
+	deleteToggleSwich bool
+)
+
 // Updates for when a user is browsing the list.
 func (m *Model) handleBrowsing(msg tea.Msg) tea.Cmd {
 	var cmds []tea.Cmd
+	wasDeleteSelection := false
 	numItems := len(m.VisibleItems())
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
+		case key.Matches(msg, m.KeyMap.DeleteSelection):
+			if len(m.Items()) == 0 {
+				break
+			}
+			wasDeleteSelection = true
+			if deleteToggleSwich {
+				m.RemoveItem(m.Cursor())
+				m.KeyMap.DeleteSelection.SetHelp("r", "remove selection")
+			} else {
+				m.KeyMap.DeleteSelection.SetHelp("r", "confirm selection removal")
+			}
+			deleteToggleSwich = !deleteToggleSwich
 		// Note: we match clear filter before quit because, by default, they're
 		// both mapped to escape.
 		case key.Matches(msg, m.KeyMap.ClearFilter):
@@ -768,6 +787,10 @@ func (m *Model) handleBrowsing(msg tea.Msg) tea.Cmd {
 			m.Help.ShowAll = !m.Help.ShowAll
 			m.updatePagination()
 		}
+	}
+
+	if !wasDeleteSelection { // if anything else reset switch
+		deleteToggleSwich = false
 	}
 
 	cmd := m.delegate.Update(msg, m)
@@ -860,6 +883,7 @@ func (m Model) ShortHelp() []key.Binding {
 		m.KeyMap.ClearFilter,
 		m.KeyMap.AcceptWhileFiltering,
 		m.KeyMap.CancelWhileFiltering,
+		m.KeyMap.DeleteSelection,
 	)
 
 	if !filtering && m.AdditionalShortHelpKeys != nil {
@@ -899,6 +923,7 @@ func (m Model) FullHelp() [][]key.Binding {
 		m.KeyMap.ClearFilter,
 		m.KeyMap.AcceptWhileFiltering,
 		m.KeyMap.CancelWhileFiltering,
+		m.KeyMap.DeleteSelection,
 	}
 
 	if !filtering && m.AdditionalFullHelpKeys != nil {

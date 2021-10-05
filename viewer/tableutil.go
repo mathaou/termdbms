@@ -13,9 +13,6 @@ func AssembleTable(m *TuiModel) string {
 	if m.UI.ShowClipboard {
 		return ShowClipboard(m)
 	}
-	if m.UI.HelpDisplay {
-		return GetHelpText()
-	}
 	if m.UI.RenderSelection {
 		return DisplaySelection(m)
 	}
