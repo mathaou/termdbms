@@ -73,6 +73,9 @@ func init() {
 			}
 
 			headerMid := lipgloss.JoinHorizontal(lipgloss.Left, builder...)
+			if m.UI.RenderSelection {
+				headerMid = ""
+			}
 			*s = lipgloss.JoinVertical(lipgloss.Left, headerTop, headerMid)
 		}
 
@@ -95,6 +98,9 @@ func init() {
 			col = m.Format.CursorY + m.Viewport.YOffset
 		}
 		footer := fmt.Sprintf(" %d, %d ", row, col)
+		if m.UI.RenderSelection {
+			footer = ""
+		}
 		undoRedoInfo := fmt.Sprintf(" undo(%d) / redo(%d) ", len(m.UndoStack), len(m.RedoStack))
 		switch m.Table().Database.(type) {
 		case *database.SQLite:
@@ -112,7 +118,7 @@ func init() {
 				Message = FooterStyle.Render(Message)
 			}
 			go func() {
-				newSize := gapSize-lipgloss.Width(Message)
+				newSize := gapSize - lipgloss.Width(Message)
 				if newSize < 1 {
 					newSize = 1
 				}
