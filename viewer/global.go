@@ -1,6 +1,7 @@
 package viewer
 
 import (
+	"encoding/json"
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -131,7 +132,11 @@ func init() {
 	}
 	GlobalCommands["p"] = func(m *TuiModel) tea.Cmd {
 		if m.UI.RenderSelection {
-			fn, _ := WriteTextFile(m, m.Data().EditTextBuffer)
+			text := m.Data().EditTextBuffer
+			if json.Valid([]byte(text)) {
+				text, _ = FormatJson(text)
+			}
+			fn, _ := WriteTextFile(m, text)
 			m.WriteMessage(fmt.Sprintf("Wrote selection to %s", fn))
 		} else if m.QueryData != nil || m.QueryResult != nil || database.IsCSV {
 			WriteCSV(m)

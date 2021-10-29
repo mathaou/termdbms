@@ -169,7 +169,7 @@ func (m *TuiModel) GetSchemaData() map[string][]interface{} {
 func (m *TuiModel) GetSelectedColumnName() string {
 	col := m.GetColumn()
 	headers := m.GetHeaders()
-	index := Min(m.NumHeaders()-1, col)
+	index := col
 	if len(headers) == 0 {
 		return ""
 	}
