@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 	"io/fs"
+	"io/ioutil"
 	_ "modernc.org/sqlite"
 	"os"
 	"path/filepath"
@@ -104,9 +105,30 @@ func main() {
 		os.Mkdir(HiddenTmpDirectoryName, 0777)
 	}
 
-	// make a copy of the database file, load this
-	dst, _, _ := CopyFile(path)
-	// keep a track of the original file name
+	database.IsCSV = strings.HasSuffix(path, ".csv")
+	dst := path
+	if database.IsCSV { // convert the csv to sql, then run the sql through a database
+		sqlFile := strings.TrimSuffix(path, ".csv")
+		sqlFile = filepath.Base(sqlFile)
+		path = Convert(path, sqlFile, true)
+		csvDBFile := HiddenTmpDirectoryName + "/" + sqlFile + ".db"
+		os.Create(csvDBFile)
+		dst, _ = filepath.Abs(csvDBFile)
+		d, _ := sql.Open(database.DriverString, dst)
+		f, _ := os.Open(path)
+		b, _ := ioutil.ReadAll(f)
+		query := string(b)
+		_, err := d.Exec(query)
+		if err != nil {
+			fmt.Printf("%v", err)
+			os.Exit(1)
+		}
+		d.Close()
+		os.Remove(path) // this deletes the converted .sql file
+	}
+
+	dst, _, _ = CopyFile(dst)
+
 	db := database.GetDatabaseForFile(dst)
 	defer func() {
 		if db == nil {

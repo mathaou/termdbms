@@ -160,6 +160,9 @@ func (m *TuiModel) GetSchemaData() map[string][]interface{} {
 	n := m.GetSchemaName()
 	t := m.Table()
 	d := t.Data
+	if d[n] == nil {
+		return map[string][]interface{}{}
+	}
 	return d[n].(map[string][]interface{})
 }
 
@@ -167,11 +170,18 @@ func (m *TuiModel) GetSelectedColumnName() string {
 	col := m.GetColumn()
 	headers := m.GetHeaders()
 	index := Min(m.NumHeaders()-1, col)
+	if len(headers) == 0 {
+		return ""
+	}
 	return headers[index]
 }
 
 func (m *TuiModel) GetColumnData() []interface{} {
-	return m.GetSchemaData()[m.GetSelectedColumnName()]
+	schemaData := m.GetSchemaData()
+	if schemaData == nil {
+		return []interface{}{}
+	}
+	return schemaData[m.GetSelectedColumnName()]
 }
 
 func (m *TuiModel) GetRowData() map[string]interface{} {

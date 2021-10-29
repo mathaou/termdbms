@@ -70,7 +70,11 @@ func (db SQLite) GetPlaceholderForDatabaseType() string {
 }
 
 func (db SQLite) GetTableNamesQuery() string {
-	return "SELECT name FROM sqlite_master WHERE type='table'"
+	val := "SELECT name FROM "
+	val += "sqlite_master"
+	val += " WHERE type='table'"
+
+	return val
 }
 
 func (db *SQLite) GenerateQuery(u *Update) (string, []string) {

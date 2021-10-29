@@ -4,7 +4,7 @@
 
 ###### Database Support
     SQLite
-
+    CSV* (see note below)
 ### made with modernc.org/sqlite, charmbracelet/bubbletea, and charmbracelet/lipgloss
 
 #### Works with keyboard and mouse!
@@ -37,12 +37,12 @@
 - Undo/Redo of changes (SQLite only)
 - Themes (press T in table mode)
 - Output query results as a csv
+- Convert .csv to SQLite database! Export as a SQLite database or .csv file again!
 
 #### Roadmap
 
-- Filter tables by fuzzy search with context menu
 - MySQL/ PostgreSQL support
-- Line wrapping / horizontal scroll for format/SQL mode.
+- Line wrapping / horizontal scroll for format/SQL mode + revamped (faster format mode)
 
 #### 
 <details>

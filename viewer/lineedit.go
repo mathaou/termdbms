@@ -73,7 +73,7 @@ func EditEnter(m *TuiModel) {
 		input    string
 	)
 
-	if i == ":q" || i == "" { // quit mod mode
+	if i == ":q" { // quit mod mode
 		ExitToDefaultView(m)
 		return
 	}
@@ -145,7 +145,7 @@ func EditEnter(m *TuiModel) {
 		}
 	}
 
-	if (original != nil && *original == input) || "" == strings.TrimSpace(input) {
+	if original != nil && *original == input {
 		ExitToDefaultView(m)
 		return
 	}

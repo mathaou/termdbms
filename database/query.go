@@ -9,6 +9,7 @@ var (
 	DBMutex      sync.Mutex
 	Databases    map[string]*sql.DB
 	DriverString string
+	IsCSV        bool
 )
 
 func init() {
