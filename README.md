@@ -76,7 +76,7 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
  - Weird combinations of newlines + tabs can break stuff. Tabs at beginning of line and mid-line works in a stable manner.
 
 ##### Help:
-    -p / database path (absolute)
+    -p / database/.csv path
     -d / specifies which database driver to use (sqlite/mysql)
     -a / enable ascii mode
     -h / prints this message
