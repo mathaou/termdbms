@@ -124,7 +124,8 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) error {
 	indexMap := 0
 
 	// gets all the schema names of the database
-	rows, err := db.Query(m.Table().Database.GetTableNamesQuery())
+	tableNamesQuery := m.Table().Database.GetTableNamesQuery()
+	rows, err := db.Query(tableNamesQuery)
 	if err != nil {
 		return err
 	}
@@ -140,12 +141,13 @@ func (m *TuiModel) SetModel(c *sql.Rows, db *sql.DB) error {
 		var statement strings.Builder
 		statement.WriteString("select * from ")
 		statement.WriteString(schemaName)
+		getAll := statement.String()
 
 		if c != nil {
 			c.Close()
 			c = nil
 		}
-		c, err = db.Query(statement.String())
+		c, err = db.Query(getAll)
 		if err != nil {
 			panic(err)
 		}

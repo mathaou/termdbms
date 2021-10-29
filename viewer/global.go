@@ -133,7 +133,7 @@ func init() {
 		if m.UI.RenderSelection {
 			fn, _ := WriteTextFile(m, m.Data().EditTextBuffer)
 			m.WriteMessage(fmt.Sprintf("Wrote selection to %s", fn))
-		} else if m.QueryData != nil || m.QueryResult != nil {
+		} else if m.QueryData != nil || m.QueryResult != nil || database.IsCSV {
 			WriteCSV(m)
 		}
 		go Program.Send(tea.KeyMsg{})
