@@ -51,7 +51,9 @@ func SelectOption(m *TuiModel) {
 
 // ScrollDown is a simple function to move the Viewport down
 func ScrollDown(m *TuiModel) {
-	if m.UI.FormatModeEnabled && m.UI.CanFormatScroll && m.Viewport.YPosition != 0 {
+	if m.UI.FormatModeEnabled && m.UI.CanFormatScroll && m.Viewport.YPosition != 0 ||
+		(m.UI.RenderSelection && (m.Viewport.YOffset + m.Viewport.Height <
+			len(strings.Split(wordwrap.String(m.Data().EditTextBuffer, m.Viewport.Width), "\n")))) {
 		m.Viewport.YOffset++
 		return
 	}
@@ -71,7 +73,8 @@ func ScrollDown(m *TuiModel) {
 
 // ScrollUp is a simple function to move the Viewport up
 func ScrollUp(m *TuiModel) {
-	if m.UI.FormatModeEnabled && m.UI.CanFormatScroll && m.Viewport.YOffset > 0 && m.Viewport.YPosition != 0 {
+	if m.UI.FormatModeEnabled && m.UI.CanFormatScroll && m.Viewport.YOffset > 0 && m.Viewport.YPosition != 0 ||
+		(m.UI.RenderSelection && m.Viewport.YOffset > 0) {
 		m.Viewport.YOffset--
 		return
 	}
