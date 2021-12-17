@@ -20,12 +20,21 @@
 - Rename anything
 - Filter tables by fuzzy search
 - MySQL/ PostgreSQL support
+- Edit during selection mode!
 
 #### Building (generally a go build should be enough, architecture included for completeness)
 
 ##### Linux
 
     GOOS=linux GOARCH=amd64 go build
+
+##### Armv7
+
+    // I tried getting modernc.org/sqlite working, but it gave me tons of errors.
+    // this set up got me a working binary on an ARM device with mattn/go-sqlite3
+    // you will need to fix the import in main.go accordingly, and update the driver
+    // string in database.go 
+    GOOS="linux" GOARCH="arm" GOARM=7 CGO_ENABLED=1 go build
 
 ##### Windows
 
@@ -37,6 +46,11 @@
 
 #### Terminal settings
 Whatever terminal emulator used should support ANSI escape sequences. If there is an option for 256 color mode, enable it.
+
+#### Known Issues
+ - The headers wig out sometimes in selection mode
+ - Possible race conditions with getting data initialized, only happens when debugging?
+ - Serializing a numeric string change (like "1234") sometimes appends a decimal at the end, even though go recognizes it as a string when serializing. This is likely a bug at the database driver level, or I am not good at this.
 
 ##### Help:
 	-p	database path (absolute)
@@ -65,5 +79,5 @@ Whatever terminal emulator used should support ANSI escape sequences. If there i
     [U] to undo actions, if applicable.
     [:q] to exit edit mode
     [:s] to save database to a new file
-    [:!s] to overwrite original database file
+    [:s!] to overwrite original database file
     [:h] to display help text

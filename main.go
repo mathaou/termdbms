@@ -5,7 +5,8 @@ import (
 	"flag"
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
-	_ "modernc.org/sqlite"
+	//_ "modernc.org/sqlite"
+	_ "github.com/mattn/go-sqlite3" // this one seems to work better for compiling to arm
 	"os"
 	"strings"
 	. "termdbms/viewer"

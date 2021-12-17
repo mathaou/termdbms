@@ -45,7 +45,7 @@ func GetDatabaseForFile(database string) *sql.DB {
 	if db, ok := dbs[database]; ok {
 		return db
 	}
-	db, err := sql.Open("sqlite", database)
+	db, err := sql.Open("sqlite3", database) // if cross compiling with go-sqlite3, this needs to be sqlite3
 	if err != nil {
 		panic(err)
 	}
