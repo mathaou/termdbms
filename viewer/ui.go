@@ -219,7 +219,8 @@ func DisplayFormatText(m *TuiModel) string {
 		cpy,
 		"\n")
 
-	return wordwrap.String(ret, m.Viewport.Width)
+	return ret
+	// return wordwrap.String(ret, m.Viewport.Width)
 }
 
 func ShowClipboard(m *TuiModel) string {
