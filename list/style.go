@@ -2,7 +2,7 @@ package list
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"termdbms/tuiutil"
+	"github.com/mathaou/termdbms/tuiutil"
 )
 
 const (

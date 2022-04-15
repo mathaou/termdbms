@@ -12,7 +12,6 @@ const (
 	TextColorKey                = "TextColor"
 )
 
-
 // styling functions
 var (
 	Highlight = func() string {

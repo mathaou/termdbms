@@ -3,13 +3,14 @@ package viewer
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"os"
-	"termdbms/list"
-	"termdbms/tuiutil"
-	"time"
+	"github.com/mathaou/termdbms/list"
+	"github.com/mathaou/termdbms/tuiutil"
 )
 
 // HandleMouseEvents does that

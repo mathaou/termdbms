@@ -4,12 +4,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	tea "github.com/charmbracelet/bubbletea"
 	"os"
 	"strings"
-	"termdbms/database"
-	"termdbms/list"
-	"termdbms/tuiutil"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/mathaou/termdbms/database"
+	"github.com/mathaou/termdbms/list"
+	"github.com/mathaou/termdbms/tuiutil"
 )
 
 func (m *TuiModel) WriteMessage(s string) {
