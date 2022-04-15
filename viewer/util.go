@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/charmbracelet/lipgloss"
 	"hash/fnv"
 	"io"
 	"math/rand"
@@ -15,11 +14,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 const (
 	HiddenTmpDirectoryName = ".termdbms"
-	SQLSnippetsFile = "snippets.termdbms"
+	SQLSnippetsFile        = "snippets.termdbms"
 )
 
 func TruncateIfApplicable(m *TuiModel, conv string) (s string) {

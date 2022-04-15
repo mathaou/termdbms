@@ -1,4 +1,4 @@
-module termdbms
+module github.com/mathaou/termdbms
 
 go 1.16
 

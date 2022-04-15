@@ -4,18 +4,20 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 	"io/fs"
 	"io/ioutil"
-	_ "modernc.org/sqlite"
 	"os"
 	"path/filepath"
 	"strings"
-	"termdbms/database"
-	. "termdbms/tuiutil"
-	. "termdbms/viewer"
+
+	. "github.com/mathaou/termdbms/tuiutil"
+	. "github.com/mathaou/termdbms/viewer"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/mathaou/termdbms/database"
+	"github.com/muesli/termenv"
+	_ "modernc.org/sqlite"
 )
 
 type DatabaseType string
@@ -102,7 +104,7 @@ func main() {
 			return nil
 		})
 	} else {
-		os.Mkdir(HiddenTmpDirectoryName, 0777)
+		os.Mkdir(HiddenTmpDirectoryName, 0o777)
 	}
 
 	database.IsCSV = strings.HasSuffix(path, ".csv")

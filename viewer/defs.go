@@ -4,13 +4,13 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"termdbms/database"
-	"termdbms/list"
+	"github.com/mathaou/termdbms/database"
+	"github.com/mathaou/termdbms/list"
 )
 
 type SQLSnippet struct {
 	Query string `json:"Query"`
-	Name string `json:"Name"`
+	Name  string `json:"Name"`
 }
 
 type ScrollData struct {

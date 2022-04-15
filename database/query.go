@@ -35,7 +35,7 @@ type Database interface {
 }
 
 type Update struct {
-	v    map[string]interface{} // these are anchors to ensure the right row/col gets updated
+	v         map[string]interface{} // these are anchors to ensure the right row/col gets updated
 	Column    string                 // this is the header
 	Update    interface{}            // this is the new cell value
 	TableName string
