@@ -2,13 +2,14 @@ package viewer
 
 import (
 	"fmt"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/reflow/wordwrap"
 	"strconv"
 	"strings"
-	"termdbms/tuiutil"
 	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/mathaou/termdbms/tuiutil"
+	"github.com/muesli/reflow/wordwrap"
 )
 
 var (

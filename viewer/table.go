@@ -2,12 +2,13 @@ package viewer
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"strings"
-	"termdbms/database"
-	"termdbms/tuiutil"
-	"time"
+	"github.com/mathaou/termdbms/database"
+	"github.com/mathaou/termdbms/tuiutil"
 )
 
 type TableAssembly func(m *TuiModel, s *string, c *chan bool)
