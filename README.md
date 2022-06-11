@@ -2,6 +2,25 @@
 
 ## A TUI for viewing and editing databases, written in pure Go
 
+#### Installation Instructions
+
+###### Go Install
+
+```go
+go install github.com/mathaou/termdbms@latest
+```
+
+###### Arch Linux
+
+```bash
+// pacman
+sudo pacman -S termdbms-git
+// yay
+yay -S termdbms-git
+```
+
+---
+
 ###### Database Support
     SQLite
     CSV* (see note below)
